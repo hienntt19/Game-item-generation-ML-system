@@ -123,7 +123,7 @@ def generate_task(request: InferenceRequest, db: Session = Depends(get_db)):
     return {"request_id": str(generated_request_id)}
     
 
-
+# user send request_id to check status, if completed, return image url
 @app.get("/status/{request_id}")
 def get_status(request_id: str, db: Session = Depends(get_db)):
     print(f"Checking status for request {request_id}")
@@ -147,3 +147,32 @@ def get_status(request_id: str, db: Session = Depends(get_db)):
         response_data["image_url"] = db_request.image_url
     
     return response_data
+
+
+class UpdateRequest(BaseModel):
+    status: str
+    image_url: str = None
+
+
+# Inference service call to update database
+@app.put("/update_db/{request_id}")
+def update_db(request_id: str, update_data: UpdateRequest, db: Session = Depends(get_db)):
+    try:
+        request_uuid = uuid.UUID(request_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid request_id format")
+    
+    db_request = db.query(GenerationRequest).filter(GenerationRequest.request_id == request_uuid).first()
+    
+    if not db_request:
+        raise HTTPException(status_code=404, detail="request_id not found")
+    
+    db_request.status = update_data.status
+    if update_data.image_url:
+        db_request.image_url = update_data.image_url
+        
+    db.commit()
+    print(f"Updated status for request {request_id} to {update_data.status}")
+    
+    return {"message": "Status updated successfully"}
+    

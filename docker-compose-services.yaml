@@ -33,7 +33,7 @@ services:
 
   api-gateway:
     build: 
-      context: ./api-gateway
+      context: .
     container_name: local-api-gateway
     ports:
       - '8080:8080'
@@ -46,7 +46,7 @@ services:
     networks:
       - service
     volumes:
-      - ./api-gateway:/app
+      - ./api_gateway:/app
   
 volumes:
   postgresql_data:
