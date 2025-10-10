@@ -1,0 +1,34 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Release.Name}}-ingress
+  namespace: {{ .Values.namespace }}
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+spec:
+  rules:
+    - host: 34.143.239.70.nip.io
+      http:
+        paths:
+          - path: /docs
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}-svc
+                port:
+                  number: {{ .Values.service.port }}
+          - path: /openapi.json
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}-svc
+                port:
+                  number: {{ .Values.service.port }}
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}-svc
+                port:
+                  number: {{ .Values.service.port }}
+

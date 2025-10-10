@@ -1,0 +1,35 @@
+namespace: service-dev
+
+image:
+  repository: sheehan19/api-gateway
+  tag: "v2.0"
+  pullPolicy: Always
+
+replicaCount: 2
+
+service:
+  type: ClusterIP
+  port: 8080
+  targetPort: 8080
+
+rabbitmq:
+  host: my-prod-rabbitmq
+  username: hienntt19
+  password: nqqPr7MmnEFWVPpW
+
+cloudsql:
+  instance_connection_name: game-item-generation:asia-southeast1:game-item-generation-service-db
+
+database:
+  name: image_requests
+  user: postgres
+  password: nezukochann19
+  host: 127.0.0.1
+
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
