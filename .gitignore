@@ -5,7 +5,12 @@ build/
 dist/
 wheels/
 *.egg-info
+.pytest_cache/
 
 # Virtual environments
 .venv
 .env
+secrets.local.env
+
+*.tfstate
+*.tfstate.backup
