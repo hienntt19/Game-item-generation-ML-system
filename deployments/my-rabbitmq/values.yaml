@@ -26,7 +26,7 @@ service:
 
 rabbitmq:
   username: hienntt19
-  password: nqqPr7MmnEFWVPpW
+  password:
 
 persistence:
   enabled: true
