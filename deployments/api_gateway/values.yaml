@@ -15,7 +15,7 @@ service:
 rabbitmq:
   host: my-prod-rabbitmq
   username: hienntt19
-  password: nqqPr7MmnEFWVPpW
+  password:
 
 cloudsql:
   instance_connection_name: game-item-generation:asia-southeast1:game-item-generation-service-db
@@ -23,7 +23,7 @@ cloudsql:
 database:
   name: image_requests
   user: postgres
-  password: nezukochann19
+  password:
   host: 127.0.0.1
 
 resources:
