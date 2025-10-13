@@ -24,7 +24,7 @@ pipeline {
         stage('Test') {
             steps {
                 echo "Install requirements.txt..."
-                sh 'python -m pip install -r requirements.txt'
+                sh 'python3 -m pip install -r requirements.txt'
                 echo "Running unit tests from ${env.TEST_DIRECTORY}..."
                 sh 'pytest ${env.TEST_DIRECTORY}/'
             }
