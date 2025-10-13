@@ -5,7 +5,7 @@ pipeline {
         PROJECT_ID = 'game-item-generation'
         GKE_CLUSTER = 'game-item-generation-service-cluster'
         GKE_ZONE = 'asia-southeast1-a'
-        DOCKER_IMAGE = 'sheehan19/api-gateway'
+        DOCKER_IMAGE_NAME = 'sheehan19/api-gateway'
 
         HELM_CHART_PATH   = 'deployments/api_gateway'
         HELM_RELEASE_NAME = 'api-gateway'
@@ -30,9 +30,8 @@ pipeline {
 
         stage('Test') {
             environment {
-                DATABASE_URL  = "sqlite:///:memory:" // Dùng DB trong bộ nhớ để test
-                RABBITMQ_HOST = "localhost"          // Giả lập RabbitMQ host
-                // Các biến khác có thể để trống hoặc đặt giá trị giả nếu cần
+                DATABASE_URL  = "sqlite:///:memory:" 
+                RABBITMQ_HOST = "localhost" 
                 POSTGRES_USER = "testuser"
                 POSTGRES_PASSWORD = "testpass"
                 POSTGRES_DB = "testdb"
