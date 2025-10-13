@@ -23,6 +23,8 @@ pipeline {
 
         stage('Test') {
             steps {
+                echo "Installing Python3 and Pip..."
+                sh 'apt-get update && apt-get install -y python3 python3-pip'
                 echo "Install requirements.txt..."
                 sh 'python3 -m pip install -r requirements.txt'
                 echo "Running unit tests from ${env.TEST_DIRECTORY}..."
