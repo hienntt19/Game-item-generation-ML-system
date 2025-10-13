@@ -8,7 +8,8 @@ import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import api_gateway
-from api_gateway.api_gateway import app, get_db, GenerationRequest
+from api_gateway.api_gateway import app, get_db
+from api_gateway.models import GenerationRequest
 
 
 MOCK_REQUEST_ID = uuid.uuid4()

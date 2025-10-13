@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from sqlalchemy import Column, String, Text, Integer, Float, BigInteger, DateTime
 from sqlalchemy.dialects.postgresql import UUID
-from database import Base
+from .database import Base
 
 class GenerationRequest(Base):
     __tablename__ = "generation_requests"
