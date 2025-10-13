@@ -4,7 +4,7 @@ pipeline {
     environment {
         PROJECT_ID = 'game-item-generation'
         GKE_CLUSTER = 'game-item-generation-service-cluster'
-        GKE_ZONE = 'asia-southeast1-a'
+        GKE_REGION = 'asia-southeast1'
         DOCKER_IMAGE_NAME = 'sheehan19/api-gateway'
 
         HELM_CHART_PATH   = 'deployments/api_gateway'
@@ -83,7 +83,7 @@ pipeline {
             steps {
                 script {
                     echo "Deploying to GKE cluster '${env.GKE_CLUSTER}'... in namespace '${env.TARGET_NAMESPACE}'..."
-                    sh "gcloud container clusters get-credentials ${env.GKE_CLUSTER} --zone ${env.GKE_ZONE} --project ${env.PROJECT_ID}"
+                    sh "gcloud container clusters get-credentials ${env.GKE_CLUSTER} --region ${env.GKE_REGION} --project ${env.PROJECT_ID}"
                     
                     sh """
                     helm upgrade --install ${env.HELM_RELEASE_NAME} ${env.HELM_CHART_PATH} \
