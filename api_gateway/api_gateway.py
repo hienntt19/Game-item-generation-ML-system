@@ -10,8 +10,8 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import sessionmaker, Session
 from datetime import datetime
 
-from .database import SessionLocal
-from .models import GenerationRequest
+from api_gateway.database import SessionLocal
+from api_gateway.models import GenerationRequest
     
     
 def get_db():
