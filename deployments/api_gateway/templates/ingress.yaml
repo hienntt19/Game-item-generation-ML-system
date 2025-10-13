@@ -7,8 +7,8 @@ metadata:
     kubernetes.io/ingress.class: "nginx"
 spec:
   rules:
-    - host: 34.143.239.70.nip.io
-      http:
+    - host: 35.247.180.140.nip.io # external ip of the ingress-nginx controller
+      http: 
         paths:
           - path: /docs
             pathType: Prefix

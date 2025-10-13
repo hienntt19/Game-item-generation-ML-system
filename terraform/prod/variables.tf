@@ -14,6 +14,31 @@ variable "region" {
     default = "asia-southeast1"
 }
 
+variable "instance_name" {
+    description = "The name of the GCE instance"
+    default = "jenkins-instance"
+}
+
+variable "boot_disk_image" {
+    description = "The boot disk image for the GCE instance"
+    default = "ubuntu-os-cloud/ubuntu-2204-lts"
+}
+
+variable "boot_disk_size" {
+  description = "boot disk size in GB"
+  default     = 30
+}
+
+# variable "ssh_keys" {
+#   description = "ssh keys to access the instance"
+#   default     = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPIIVSHCBtKfTGRKqUFh7w7tKWNke5e8pGV+dhanZRMB hienntt19@hienntt19-B760M-G-P-WIFI-DDR4"
+# }
+
+variable "firewall_name" {
+  description = "name of the firewall rule"
+  default     = "firewall-rule"
+}
+
 # variable "bucket" {
 #     description = "The name of the GCS bucket"
 #     default = "gig-worker-bucket"

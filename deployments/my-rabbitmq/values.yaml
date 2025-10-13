@@ -30,7 +30,7 @@ rabbitmq:
 
 persistence:
   enabled: true
-  storageClassName: "standard" # Hoặc storage class của bạn trên GKE
+  storageClassName: "standard"
   accessModes:
     - ReadWriteOnce
   size: 5Gi

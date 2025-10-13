@@ -14,7 +14,7 @@ provider "google" {
     region  = var.region
 }
 
-#--------GKE cluster---------------
+# Google Kubernetes Engine cluster
 resource "google_container_cluster" "service-cluster" {
     name = "${var.project_id}-service-cluster"
     location = var.region
@@ -35,12 +35,14 @@ resource "google_container_cluster" "service-cluster" {
     }
 }
 
-#-----------Node pool for GKE cluster----------------
+# Node pool for GKE cluster
 resource "google_container_node_pool" "primary_nodes" {
     name = "${var.project_id}-np"
     location = var.region
     cluster = google_container_cluster.service-cluster.name
     node_count = 1
+
+    version = google_container_cluster.service-cluster.master_version
 
     node_config {
         machine_type = "e2-small"
@@ -53,7 +55,7 @@ resource "google_container_node_pool" "primary_nodes" {
     }
 }
 
-#--------Google Cloud SQL---------------
+# Google Cloud SQL
 resource "google_sql_database_instance" "service-db" {
     name = "${var.project_id}-service-db"
     database_version = "POSTGRES_14"
@@ -72,20 +74,19 @@ resource "google_sql_database_instance" "service-db" {
     depends_on = [google_service_networking_connection.default]
 }
 
-#---------Service account for GKE nodes----------------
+# Service account for GKE nodes
 resource "google_service_account" "gke_service_account" {
     account_id = "gke-nodes-sa"
     display_name = "Service account for GKE nodes"
 }
 
-#---------Service account for application----------------
+# Service account for application
 resource "google_service_account" "app_gsa" {
     account_id   = "api-gateway-gsa"
     display_name = "GSA for API Gateway Application"
 }
 
-
-#--------Provide Cloud SQL Client role to the service account----------------
+# Provide Cloud SQL Client role to the service account
 resource "google_project_iam_member" "app_gsa_sql_client" {
     project = var.project_id
     role = "roles/cloudsql.client"
@@ -99,7 +100,72 @@ resource "google_service_account_iam_member" "app_gsa_workload_identity_user" {
 }
 
 
-#---------Google Cloud Storage----------------
+# Service account for jenkins VM (to connect google cloud services)
+resource "google_service_account" "jenkins_vm_sa" {
+    account_id   = "jenkins-vm-sa"
+    display_name = "Service Account for Jenkins GCE VM"
+}
+
+# Provide roles to the Jenkins VM service account
+# Kubernetes Engine Developer role: for deploying applications to GKE cluster
+resource "google_project_iam_member" "jenkins_gke_developer" {
+    project = var.project_id
+    role = "roles/container.developer"
+    member = "serviceAccount:${google_service_account.jenkins_vm_sa.email}"
+}
+
+
+# Google Compute Engine to run jenkins
+resource "google_compute_instance" "jenkins_instance" {
+    name = var.instance_name
+    machine_type = "e2-standard-2"
+    zone = var.zone
+    tags = ["jenkins-master-access"]
+
+    boot_disk {
+        initialize_params {
+            image = var.boot_disk_image
+            size = var.boot_disk_size
+        }
+    }
+
+    network_interface {
+        network    = google_compute_network.vpc_network.id
+        subnetwork = google_compute_subnetwork.service_subnet.id
+        # network = "default"
+
+        access_config {
+            // Ephemeral IP
+        }
+    }
+
+    service_account {
+        email  = google_service_account.jenkins_vm_sa.email
+        scopes = ["cloud-platform"]
+    }
+
+    depends_on = [
+      google_project_iam_member.jenkins_gke_developer,
+    ]
+}
+
+resource "google_compute_firewall" "jenkins_firewall" {
+  name    = var.firewall_name
+  network    = google_compute_network.vpc_network.id
+#   network = "default"
+
+  target_tags = ["jenkins-master-access"]
+
+  allow {
+    protocol = "tcp"
+    ports    = ["22", "8081", "50000"]
+  }
+
+  source_ranges = ["0.0.0.0/0"] # allow all traffic
+}
+
+
+# # Google Cloud Storage
 # resource "google_storage_bucket" "gig-worker-bucket" {
 #     name     = var.bucket
 #     location = var.region

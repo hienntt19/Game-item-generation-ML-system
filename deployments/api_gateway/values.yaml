@@ -2,15 +2,15 @@ namespace: service-dev
 
 image:
   repository: sheehan19/api-gateway
-  tag: "v2.0"
+  tag: "v3.1"
   pullPolicy: Always
 
 replicaCount: 2
 
 service:
   type: ClusterIP
-  port: 8080
-  targetPort: 8080
+  port: 8000
+  targetPort: 8000
 
 rabbitmq:
   host: my-prod-rabbitmq
