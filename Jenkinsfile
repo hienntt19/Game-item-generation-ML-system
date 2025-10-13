@@ -11,6 +11,13 @@ pipeline {
         HELM_RELEASE_NAME = 'api-gateway'
         TARGET_NAMESPACE  = 'service-dev'
         TEST_DIRECTORY    = 'tests'
+
+        POSTGRES_USER         = credentials('api-gateway-postgres-user')
+        POSTGRES_PASSWORD     = credentials('api-gateway-postgres-pass')
+        POSTGRES_DB           = credentials('api-gateway-postgres-db')
+        RABBITMQ_HOST         = credentials('api-gateway-rabbitmq-host')
+        RABBITMQ_DEFAULT_USER = credentials('api-gateway-rabbitmq-user')
+        RABBITMQ_DEFAULT_PASS = credentials('api-gateway-rabbitmq-pass')
     }
 
     stages {
@@ -22,6 +29,16 @@ pipeline {
         }
 
         stage('Test') {
+            environment {
+                DATABASE_URL  = "sqlite:///:memory:" // Dùng DB trong bộ nhớ để test
+                RABBITMQ_HOST = "localhost"          // Giả lập RabbitMQ host
+                // Các biến khác có thể để trống hoặc đặt giá trị giả nếu cần
+                POSTGRES_USER = "testuser"
+                POSTGRES_PASSWORD = "testpass"
+                POSTGRES_DB = "testdb"
+                RABBITMQ_DEFAULT_USER = "guest"
+                RABBITMQ_DEFAULT_PASS = "guest"
+            }
             steps {
                 echo "Installing Python3, Pip, and Venv..."
                 sh 'apt-get update && apt-get install -y python3 python3-pip python3-venv'
@@ -38,6 +55,7 @@ pipeline {
                 echo "Running unit tests using virtual environment..."
                 sh '''
                     . .venv/bin/activate
+                    export PYTHONPATH=.
                     pytest tests/
                 '''
             }
@@ -70,9 +88,15 @@ pipeline {
                     
                     sh """
                     helm upgrade --install ${env.HELM_RELEASE_NAME} ${env.HELM_CHART_PATH} \
+                        --namespace ${env.TARGET_NAMESPACE} \
                         --set image.repository=${env.DOCKER_IMAGE_NAME} \
                         --set image.tag=${env.BUILD_NUMBER} \
-                        --namespace ${env.TARGET_NAMESPACE} \
+                        --set-string database.user="${POSTGRES_USER}" \
+                        --set-string database.password="${POSTGRES_PASSWORD}" \
+                        --set-string database.name="${POSTGRES_DB}" \
+                        --set-string secret.rabbitmqHost="${RABBITMQ_HOST}" \
+                        --set-string secret.rabbitmqUser="${RABBITMQ_DEFAULT_USER}" \
+                        --set-string secret.rabbitmqPass="${RABBITMQ_DEFAULT_PASS}" \
                         --wait
                     """
                 }
