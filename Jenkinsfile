@@ -82,22 +82,34 @@ pipeline {
         stage('Deploy') {
             steps {
                 script {
-                    echo "Deploying to GKE cluster '${env.GKE_CLUSTER}'... in namespace '${env.TARGET_NAMESPACE}'..."
+                    echo "Installing GKE auth plugin..."
+                    sh 'apt-get update && apt-get install -y google-cloud-sdk-gke-gcloud-auth-plugin'
+
+                    echo "Deploying to GKE cluster '${env.GKE_CLUSTER}'..."
                     sh "gcloud container clusters get-credentials ${env.GKE_CLUSTER} --region ${env.GKE_REGION} --project ${env.PROJECT_ID}"
                     
-                    sh """
-                    helm upgrade --install ${env.HELM_RELEASE_NAME} ${env.HELM_CHART_PATH} \
-                        --namespace ${env.TARGET_NAMESPACE} \
-                        --set image.repository=${env.DOCKER_IMAGE_NAME} \
-                        --set image.tag=${env.BUILD_NUMBER} \
-                        --set-string database.user="${POSTGRES_USER}" \
-                        --set-string database.password="${POSTGRES_PASSWORD}" \
-                        --set-string database.name="${POSTGRES_DB}" \
-                        --set-string secret.rabbitmqHost="${RABBITMQ_HOST}" \
-                        --set-string secret.rabbitmqUser="${RABBITMQ_DEFAULT_USER}" \
-                        --set-string secret.rabbitmqPass="${RABBITMQ_DEFAULT_PASS}" \
-                        --wait
-                    """
+                    withCredentials([
+                        string(credentialsId: 'api-gateway-postgres-user', variable: 'PG_USER'),
+                        string(credentialsId: 'api-gateway-postgres-pass', variable: 'PG_PASS'),
+                        string(credentialsId: 'api-gateway-postgres-db', variable: 'PG_DB'),
+                        string(credentialsId: 'api-gateway-rabbitmq-host', variable: 'RMQ_HOST'),
+                        string(credentialsId: 'api-gateway-rabbitmq-user', variable: 'RMQ_USER'),
+                        string(credentialsId: 'api-gateway-rabbitmq-pass', variable: 'RMQ_PASS')
+                    ]) {
+                        sh """
+                        helm upgrade --install ${env.HELM_RELEASE_NAME} ${env.HELM_CHART_PATH} \
+                            --namespace ${env.TARGET_NAMESPACE} \
+                            --set image.repository=${env.DOCKER_IMAGE_NAME} \
+                            --set image.tag=${env.BUILD_NUMBER} \
+                            --set-string database.user="$PG_USER" \
+                            --set-string database.password="$PG_PASS" \
+                            --set-string database.name="$PG_DB" \
+                            --set-string secret.rabbitmqHost="$RMQ_HOST" \
+                            --set-string secret.rabbitmqUser="$RMQ_USER" \
+                            --set-string secret.rabbitmqPass="$RMQ_PASS" \
+                            --wait
+                        """
+                    }
                 }
             }
         }
