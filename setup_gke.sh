@@ -22,6 +22,6 @@ source export_values.sh
 
 # Install api gateway
 kubectl create namespace service-dev
-kubens services-serving
+kubens service-dev
 helm upgrade --install api-gateway ./api_gateway
 
