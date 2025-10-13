@@ -61,21 +61,21 @@ pipeline {
             }
         }
 
-        stage('Build and Push Docker Image') {
+        stage('Build & Push Docker Image') {
             steps {
-                withCredentials(
-                    [usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]
-                )
-                script {
-                    echo "Logging into dockerhub..."
-                    sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
-                    def imageTag = "${env.DOCKER_IMAGE_NAME}:${env.BUILD_NUMBER}"
-
-                    echo "Building Docker image: ${imageTag}"
-                    sh "docker build -t ${imageTag} ."
-                    
-                    echo "Pushing Docker image to Docker Hub..."
-                    sh "docker push ${imageTag}"
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCK-USER', passwordVariable: 'DOCKER_PASS')]) {
+                    script {
+                        echo "Logging into Docker Hub..."
+                        sh 'echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin'
+                        
+                        def imageTag = "${env.DOCKER_IMAGE_NAME}:${env.BUILD_NUMBER}"
+                        
+                        echo "Building Docker image: ${imageTag}"
+                        sh "docker build -t ${imageTag} ."
+                        
+                        echo "Pushing Docker image to Docker Hub..."
+                        sh "docker push ${imageTag}"
+                    }
                 }
             }
         }
