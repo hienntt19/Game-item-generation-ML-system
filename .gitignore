@@ -10,7 +10,6 @@ wheels/
 # Virtual environments
 .venv
 .env
-secrets.local.env
 
 *.tfstate
 *.tfstate.backup

@@ -80,13 +80,13 @@ resource "google_service_account" "gke_service_account" {
     display_name = "Service account for GKE nodes"
 }
 
-# Service account for application
+# Service account for API Gateway
 resource "google_service_account" "app_gsa" {
     account_id   = "api-gateway-gsa"
     display_name = "GSA for API Gateway Application"
 }
 
-# Provide Cloud SQL Client role to the service account
+# Provide Cloud SQL Client role to API Gateway service account
 resource "google_project_iam_member" "app_gsa_sql_client" {
     project = var.project_id
     role = "roles/cloudsql.client"
@@ -98,7 +98,6 @@ resource "google_service_account_iam_member" "app_gsa_workload_identity_user" {
   role = "roles/iam.workloadIdentityUser"
   member = "serviceAccount:${var.project_id}.svc.id.goog[service-dev/ksa-api-gateway]"
 }
-
 
 # Service account for jenkins VM (to connect google cloud services)
 resource "google_service_account" "jenkins_vm_sa" {

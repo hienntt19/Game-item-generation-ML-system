@@ -31,7 +31,7 @@ variable "boot_disk_size" {
 
 # variable "ssh_keys" {
 #   description = "ssh keys to access the instance"
-#   default     = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPIIVSHCBtKfTGRKqUFh7w7tKWNke5e8pGV+dhanZRMB hienntt19@hienntt19-B760M-G-P-WIFI-DDR4"
+#   default     = ""
 # }
 
 variable "firewall_name" {
