@@ -1,8 +1,8 @@
 import os
 from opentelemetry import trace
-from opentelemetry.sdk.trace import TraceProvider
+from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.exporter.jaeger.udp import JaegerExporter
+from opentelemetry.exporter.jaeger.thrift import JaegerExporter
 from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
@@ -19,7 +19,7 @@ def setup_tracing(app):
         }
     )
     
-    provider = TraceProvider(resource=resource)
+    provider = TracerProvider(resource=resource)
     trace.set_tracer_provider(provider)
     
     jaeger_agent_host = os.getenv("JAEGER_AGENT_HOST", "localhost")

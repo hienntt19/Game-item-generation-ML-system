@@ -244,10 +244,11 @@ Access Jenkins UI through ```35.240.223.201:8081```:
       <img src="images/all-credentials.png" alt="Sample architecture">
     </p>
 
-  - CI/CD results:
-    <p align="center">
-      <img src="images/jenkins_result.png" alt="Sample architecture">
-    </p>
+  - Create Github webhook to trigger Jenkins CI/CD
+    + Go to Github repository of the project -> Webhooks -> Add webhook
+      <p align="center">
+        <img src="images/webhook.png" alt="Sample architecture">
+      </p>
 
 ## API flow and output
 ![Demo video](./images/full_flow.gif)
