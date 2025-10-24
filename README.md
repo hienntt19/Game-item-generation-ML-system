@@ -54,86 +54,95 @@ The entire system is built on a microservices architecture, composed of 2 main p
 ```
 
 ## Deployment on GCP
+Prequisite: Google Cloud SDK installed
+
+**Authenticate with gcloud: ***
+
+```
+gcloud auth login
+gcloud config set project YOUR_PROJECT_ID
+
+```
 
 ### 1. Provision infrastructures with Terraform
 Terraform offers the following infrastructures:
 - GKE cluster with Node Pool configurations (to deploy Ingress-Nginx, API Gateway, RabbitMQ)
-- Cloud SQL (Postgres)
+- Cloud SQL (Postgres) and required database, table
 - GCE (to run Jenkins)
+- GCS (to store generated images by inference worker)
 - Service account for:
    + GKE nodes
    + API Gateway with Cloud SQL Client role and workload identity iam (to update Cloud SQL)
    + Jenkins VM with Kubernetes Engine Developer role (to deploy application to GKE cluster)
+   + GCS with Object Storage Admin role
 - Firewall (to allow Jenkins ports)
 - VPC network and subnetwork
 
 To setup infrastructures:
 ```
-cd terraform/prod
+cd terraform
 terraform init
 terraform plan
 terraform apply
 ```
 
+Show Cloud SQL account password:
+```
+terraform output db_password
+```
+
 ### 2. Deploy GKE services - Ingress-nginx, API Gateway, RabbitMQ
+**Connect with GKE cluster:**
+```
+gcloud container clusters get-credentials game-item-generation-service-cluster --region asia-southeast1 --project game-item-generation
+```
+
+**Create namespace:**
+```
+kubectl create namespace service-dev
+kubectl create namespace monitor
+kubectl create namespace nginx-ingress
+```
+
+**Create secrets:**
+```
+cd deployments
+kubectl apply -f secrets.yaml
+```
+
 **Deploy Ingress-nginx:**
 ```
-kubectl create namespace ingress-nginx
-kubens ingress-nginx
-
-helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
-helm repo update
-helm install nginx-ingress ingress-nginx/ingress-nginx
+helm upgrade --install ingress-nginx ./ingress-nginx/ --namespace nginx-ingress
 ```
+
+**Show nginx-ingress External IP and put it in api_gateway/templates/ingress.yaml host:**
+<p align="center">
+  <img src="images/nginx-ip.png" alt="Sample architecture">
+</p>
+
+<p align="center">
+  <img src="images/nginx-host.png" alt="Sample architecture">
+</p>
+
 
 **Deploy RabbitMQ:**
 ```
-cd deployments
-
-kubectl create namespace rabbitmq
-kubens rabbitmq
-helm upgrade --install my-prod-rabbitmq ./my-rabbitmq
+helm upgrade --install rabbitmq ./rabbitmq --namespace service-dev
 ```
 
 Access RabbitMQ through web ui:
 ```
-kubectl port-forward svc/my-prod-rabbitmq 15672:15672
+kubectl port-forward svc/rabbitmq 15672:15672 -n service-dev
 ```
 
-**Deploy API Gateway and connect with Cloud SQL:**
-
-Replace host in deployments/api_gateway/templates/ingress.yaml with ingress-nginx external IP:
-<p align="center">
-  <img src="images/ingress_host.png" alt="Sample architecture">
-</p>
-<p align="center">
-  <img src="images/ingress_nginx.png" alt="Sample architecture">
-</p>
-
-Access to Cloud SQL, create database named *image_requests* and table  *generation_requests* with script in postgres/create_database.sql.
-
-Replace rabbitmq host, rabbitmq user, instance_connection_name, database name, database user, database host in
-deployments/api_gateway/values.yaml with your own settings.
-
-Replace DATABASE_PASS, RABBITMQ_DEFAULT_PASS in export_env.sh with your own settings.
-
+**Deploy API Gateway:**
 ```
-source export_env.sh
-
-cd deployments
-
-kubectl create namespace service-dev
-kubens service-dev
-helm upgrade --install api-gateway ./api_gateway
+helm upgrade --install api-gateway ./api_gateway --namespace service-dev
 ```
-
-<p align="center">
-  <img src="images/api_gateway.png" alt="Sample architecture">
-</p>
 
 Access API Gateway API using ingress host:
 <p align="center">
-  <img src="images/api_gateway_api.png" alt="Sample architecture">
+  <img src="images/api-gateway-api.png" alt="Sample architecture">
 </p>
 
 ## Setup CI/CD with Jenkins
@@ -144,12 +153,14 @@ Create ssh-key on local computer, add it to Jenkins VM instance and connect Jenk
 </p>
 
 <p align="center">
-  <img src="images/jenkins.png" alt="Sample architecture">
+  <img src="images/jenkins-ip.png" alt="Sample architecture">
 </p>
 
 ```
-ssh hienntt19@34.158.61.202
+ssh hienntt19@35.240.223.201
 ```
+
+Install Docker on VM instance: https://docs.docker.com/engine/install/ubuntu/
 
 After accessing to Jenkins VM instance, create jenkins folder containing Dockerfile and docker-compose.yaml 
 with the same content as jenkins/ :
@@ -169,22 +180,110 @@ Run Jenkins docker container:
 docker compose -f docker-compose-jenkins.yaml up
 ```
 <p align="center">
-   <img src="images/jenkins_connect.png" alt="Sample architecture">
+   <img src="images/jenkins-pass.png" alt="Sample architecture">
 </p>
 
 Save Jenkins password to .env file.
 
-Access Jenkins UI through ```34.158.61.202:8081```:
-   - Install suggested packages and Kubernetes plugin.
-   - Create New item, add the following credentials and config with Github repository, replace Jenkins files configurations.
-   <p align="center">
-      <img src="images/credentials.png" alt="Sample architecture">
-   </p>
+Access Jenkins UI through ```35.240.223.201:8081```:
+  - Login with jenkins password:
+      <p align="center">
+        <img src="images/jenkins-login.png" alt="Sample architecture">
+      </p>
 
-CI/CD results:
-<p align="center">
-   <img src="images/jenkins_result.png" alt="Sample architecture">
-</p>
+  - Install suggested plugins:
+      <p align="center">
+        <img src="images/jenkins-plugins.png" alt="Sample architecture">
+      </p>
+
+      <p align="center">
+        <img src="images/jenkins-plugins-installing.png" alt="Sample architecture">
+      </p>
+
+      <p align="center">
+        <img src="images/jenkins-config.png" alt="Sample architecture">
+      </p>
+
+  - After successfully login to Jenkins, install Docker, DockerPipeline, Kubernetes plugins:
+      <p align="center">
+        <img src="images/jenkins-plugins-cloud.png" alt="Sample architecture">
+      </p>
+
+  - Restart and login into Jenkins again
+
+  - Create New item:
+    <p align="center">
+      <img src="images/jenkins_add_item.png" alt="Sample architecture">
+    </p>
+
+  - Config New item with Github URL and credentials:
+    <p align="center">
+      <img src="images/jenkins_item_config.png" alt="Sample architecture">
+    </p>
+
+  - Go to Manage Jenkins/Credentials and add the following credentials:
+    + Add global Credentials with kind Secret text for:
+        api-gateway-postgres-user,
+        api-gateway-postgres-pass,
+        api-gateway-postgres-db,
+        api-gateway-rabbitmq-host,
+        api-gateway-rabbitmq-user,
+        api-gateway-rabbitmq-pass
+
+      <p align="center">
+        <img src="images/jenkins_credential_example.png" alt="Sample architecture">
+      </p>
+
+    + Add global Credentials with kind Username with password for dockerhub-credentials:
+
+      <p align="center">
+        <img src="images/dockerhub-credentials.png" alt="Sample architecture">
+      </p>
+
+    <p align="center">
+      <img src="images/all-credentials.png" alt="Sample architecture">
+    </p>
+
+  - CI/CD results:
+    <p align="center">
+      <img src="images/jenkins_result.png" alt="Sample architecture">
+    </p>
 
 ## API flow and output
 ![Demo video](./images/full_flow.gif)
+
+## Monitoring setup
+
+### Install ELK
+
+```
+# Elasticsearch
+helm upgrade --install elasticsearch ./elasticsearch/ -f ./elasticsearch/values.yaml -n monitor
+
+# Kibana
+helm upgrade --install kibana ./kibana/ -f ./kibana/values.yaml -n monitor
+# Access kibana
+kubectl port-forward svc/kibana-kibana 5601:5601
+
+# Install filebeat
+helm upgrade --install filebeat ./filebeat/ -f ./filebeat/values.yaml -n monitor
+
+# Install Jaeger
+helm repo add jetstack https://charts.jetstack.io
+helm repo update
+
+helm install \
+  cert-manager jetstack/cert-manager \
+  --namespace cert-manager \
+  --create-namespace \
+  --version v1.13.2 \
+  --set installCRDs=true
+
+helm upgrade --install jaeger ./jaeger -n monitor
+# Access Jaeger UI
+kubectl port-forward -n monitor svc/jaeger-query 16686:80
+```
+
+
+
+

@@ -12,6 +12,7 @@ from datetime import datetime
 
 from api_gateway.database import SessionLocal
 from api_gateway.models import GenerationRequest
+from api_gateway.tracing import setup_tracing
     
     
 def get_db():
@@ -35,6 +36,8 @@ app = FastAPI(
     description="Acceptes requests and queue them for processing",
     version="1.0.0"
 )
+
+setup_tracing(app)
 
 RABBITMQ_HOST = os.getenv("RABBITMQ_HOST", "localhost")
 RABBITMQ_USER = os.getenv("RABBITMQ_DEFAULT_USER", "user")

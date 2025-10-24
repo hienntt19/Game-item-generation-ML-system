@@ -13,7 +13,7 @@ service:
   targetPort: 8000
 
 rabbitmq:
-  host: my-prod-rabbitmq
+  host: rabbitmq
   username: hienntt19
   password:
 
@@ -22,7 +22,7 @@ cloudsql:
 
 database:
   name: image_requests
-  user: postgres
+  user: hienntt19
   password:
   host: 127.0.0.1
 

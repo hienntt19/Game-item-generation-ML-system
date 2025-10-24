@@ -27,7 +27,7 @@ spec:
                   - containerPort: {{ .Values.service.targetPort }}  
                 env:
                 - name: RABBITMQ_HOST
-                  value: {{ .Values.rabbitmq.host }}.rabbitmq.svc.cluster.local
+                  value: {{ .Values.rabbitmq.host }}.service-dev.svc.cluster.local
                 - name: RABBITMQ_DEFAULT_USER
                   valueFrom:
                     secretKeyRef:
@@ -52,6 +52,12 @@ spec:
                     secretKeyRef:
                       name: api-gateway-credentials
                       key: DATABASE_URL
+                - name: OTEL_SERVICE_NAME
+                  value: "api-gateway"
+                - name: JAEGER_AGENT_HOST
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: status.hostIP
                 volumeMounts:
                   - name: cloudsql
                     mountPath: /cloudsql
