@@ -95,7 +95,7 @@ pipeline {
                     '''
 
                     echo "Installing GKE auth plugin..."
-                    sh 'apt-get update && apt-get install -y google-cloud-sdk-gke-gcloud-auth-plugin'
+                    sh 'apt-get install -y google-cloud-cli google-cloud-sdk-gke-gcloud-auth-plugin'
 
                     echo "Deploying to GKE cluster '${env.GKE_CLUSTER}'..."
                     sh "gcloud container clusters get-credentials ${env.GKE_CLUSTER} --region ${env.GKE_REGION} --project ${env.PROJECT_ID}"
