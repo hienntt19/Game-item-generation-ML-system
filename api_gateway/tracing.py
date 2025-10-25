@@ -8,6 +8,7 @@ from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
 from opentelemetry.instrumentation.pika import PikaInstrumentor
+from opentelemetry.sdk.trace.sampling import ALWAYS_ON
 
 
 def setup_tracing(app):
@@ -19,7 +20,8 @@ def setup_tracing(app):
         }
     )
     
-    provider = TracerProvider(resource=resource)
+    provider = TracerProvider(resource=resource, sampler=ALWAYS_ON)
+    
     trace.set_tracer_provider(provider)
     
     jaeger_agent_host = os.getenv("JAEGER_AGENT_HOST", "localhost")
