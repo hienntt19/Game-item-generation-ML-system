@@ -161,10 +161,10 @@ storage:
       # es.index-prefix: test
     tls:
       enabled: true
-      secretName: elasticsearch-master-certs
+      secretName: jaeger-es-ca
       # The mount properties of the secret
       mountPath: /etc/jaeger/tls/es-ca.crt
-      subPath: ca.crt
+      subPath: es-ca.crt
       ca: /etc/jaeger/tls/es-ca.crt
 
   kafka:

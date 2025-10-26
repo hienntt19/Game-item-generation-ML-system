@@ -55,9 +55,7 @@ spec:
                 - name: OTEL_SERVICE_NAME
                   value: "api-gateway"
                 - name: JAEGER_AGENT_HOST
-                  valueFrom:
-                    fieldRef:
-                      fieldPath: status.hostIP
+                  value: "jaeger-agent.monitor.svc.cluster.local"
                 volumeMounts:
                   - name: cloudsql
                     mountPath: /cloudsql

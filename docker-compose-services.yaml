@@ -53,23 +53,3 @@ volumes:
 
 networks:
   service:
-
-# resources:
-#   limits:
-#     cpu: {{ .Values.resources.limits.cpu }}
-#     memory: {{ .Values.resources.limits.memory }}
-#   requests:
-#     cpu: {{ .Values.resources.requests.cpu }}
-#     memory: {{ .Values.resources.requests.memory }}
-# readinessProbe:
-#   httpGet:
-#     path: /docs
-#     port: 8080
-#   initialDelaySeconds: 5
-#   periodSeconds: 10
-# livenessProbe:
-#   httpGet:
-#     path: /docs
-#     port: 8080
-#   initialDelaySeconds: 15
-#   periodSeconds: 20 

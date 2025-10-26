@@ -1,7 +1,7 @@
 import os
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
 from opentelemetry.exporter.jaeger.thrift import JaegerExporter
 from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 
@@ -31,7 +31,8 @@ def setup_tracing(app):
         agent_port=6831
     )
     
-    span_processor = BatchSpanProcessor(jaeger_exporter)
+    # span_processor = BatchSpanProcessor(jaeger_exporter)
+    span_processor = SimpleSpanProcessor(jaeger_exporter)
     trace.get_tracer_provider().add_span_processor(span_processor)
     
     print(f"Tracing is configured for service '{service_name}' sending to Jaeger at {jaeger_agent_host}:6831")

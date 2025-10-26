@@ -281,9 +281,22 @@ helm install \
   --set installCRDs=true
 
 helm upgrade --install jaeger ./jaeger -n monitor
+
+# Cert
+kubectl get secret elasticsearch-master-certs -n monitor -o yaml
+
+Copy ca.crt and decode:
+echo "..." | base64 --decode > es-ca.crt
+
+Create new secret:
+kubectl create secret generic jaeger-es-ca --from-file=es-ca.crt -n monitor
+
+
+
 # Access Jaeger UI
 kubectl port-forward -n monitor svc/jaeger-query 16686:80
 ```
+
 
 
 
