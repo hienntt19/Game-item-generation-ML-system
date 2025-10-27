@@ -17,15 +17,13 @@ MOCK_REQUEST_ID = uuid.uuid4()
 
 #-------------TEST FOR /generate endpoint -------------#
 # TC1: Send valid request successfully
-@patch('api_gateway.api_gateway.pika.BlockingConnection')
-def test_generate_task_success(mock_pika_conn, client, mock_db_session, sample_request):
-    mock_channel = MagicMock()
-    mock_pika_conn.return_value.channel.return_value = mock_channel
+def test_generate_task_success(client, mock_db_session, mock_mq_channel, sample_request):
+    mock_db_session.reset_mock()
+    mock_mq_channel.reset_mock()
     
     def set_request_id(db_request_obj):
         db_request_obj.request_id = MOCK_REQUEST_ID
-    
-    mock_db_session.reset_mock()
+        
     mock_db_session.refresh.side_effect = set_request_id
     
     response = client.post("/generate", json=sample_request)
@@ -38,7 +36,7 @@ def test_generate_task_success(mock_pika_conn, client, mock_db_session, sample_r
     assert added_object.prompt == "tsuki_advtr, a samoyed dog smiling, white background, thick outlines, pastel color, cartoon style, hand-drawn, 2D icon, game item, 2D game style, minimalist"
     
     mock_db_session.commit.assert_called_once()
-    mock_channel.basic_publish.assert_called_once()
+    mock_mq_channel.basic_publish.assert_called_once()
     
 
 # TC2: Send invalid request (missing required field)
@@ -56,6 +54,8 @@ def test_generate_task_invalid_request(client, sample_request):
 #-------------TEST FOR /status/{request_id} endpoint -------------#
 # TC3: Check status of completed request and get result
 def test_get_status_completed(client, mock_db_session):
+    mock_db_session.reset_mock()
+    
     mock_db_record = GenerationRequest(
         request_id = MOCK_REQUEST_ID,
         status = "Completed",
@@ -76,6 +76,8 @@ def test_get_status_completed(client, mock_db_session):
 
 # TC4: Check status of request_id that does not exist
 def test_get_status_not_found(client, mock_db_session):
+    mock_db_session.reset_mock()
+    
     mock_db_session.query.return_value.filter.return_value.first.return_value = None
     
     response = client.get("/status/00000000-0000-0000-0000-000000000000")

@@ -7,7 +7,7 @@ import sys
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from api_gateway.api_gateway import app, get_db
+from api_gateway.api_gateway import app, get_db, get_mq_channel
 from api_gateway.models import GenerationRequest
 
 @pytest.fixture()
@@ -21,27 +21,25 @@ def sample_request():
     }
     
 
-@pytest.fixture(scope="module")
+@pytest.fixture()
 def mock_db_session():
-    db = MagicMock(spec=Session)
-    db.query.return_value.filter.return_value.first.return_value = None
-    db.query.return_value.filter.return_value.update.return_value = None
-    yield db
-    
+    return MagicMock(spec=Session)
 
-@pytest.fixture(scope="module")
-def client(mock_db_session):
-    def override_get_db():
-        try: 
-            yield mock_db_session
-        finally:
-            pass
-        
-    app.dependency_overrides[get_db] = override_get_db
+
+@pytest.fixture
+def mock_mq_channel():
+    return MagicMock()
+
+
+@pytest.fixture()
+def client(mock_db_session, mock_mq_channel):
+    app.dependency_overrides[get_db] = lambda: mock_db_session
+    app.dependency_overrides[get_mq_channel] = lambda: mock_mq_channel
     
-    with TestClient(app) as test_client:
-        yield test_client
-        
-    del app.dependency_overrides[get_db]
+    test_client = TestClient(app)
+    
+    yield test_client
+    
+    app.dependency_overrides.clear()
     
 

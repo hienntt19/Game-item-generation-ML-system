@@ -68,7 +68,7 @@ def get_mq_channel():
     return mq_state["channel"]
 
 class InferenceRequest(BaseModel):
-    prompt: str = "tsuki_advtr, a samoyed dog smiling, white background, thick outlines, pastel color, cartoon style, hand-drawn, 2D icon, game item, 2D game - style, minimalist"
+    prompt: str
     negative_prompt: str = ""
     num_inference_steps: int = 50
     guidance_scale: float = 7.5
@@ -105,7 +105,7 @@ def generate_task(request: InferenceRequest, db: Session = Depends(get_db), chan
     try:
         task_message = {
             "request_id": generated_request_id,
-            "params": request.dict()
+            "params": request.model_dump()
         }
     
         channel.basic_publish(
