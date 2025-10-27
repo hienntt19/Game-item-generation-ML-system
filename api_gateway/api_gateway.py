@@ -9,11 +9,53 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import sessionmaker, Session
 from datetime import datetime
+from contextlib import asynccontextmanager
+import logging 
+import logging.config
 
 from api_gateway.database import SessionLocal
 from api_gateway.models import GenerationRequest
 from api_gateway.tracing import setup_tracing
+from api_gateway.logging_config import LOGGING_CONFIG
+
+
+logger = logging.getLogger(__name__)
+
+RABBITMQ_HOST = os.getenv("RABBITMQ_HOST", "localhost")
+RABBITMQ_USER = os.getenv("RABBITMQ_DEFAULT_USER", "user")
+RABBITMQ_PASS = os.getenv("RABBITMQ_DEFAULT_PASS", "password")
+QUEUE_NAME = "image_generation_queue"
+
+mq_state = {}
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("Connecting to RabbitMQ...")
+    credentials = pika.PlainCredentials(RABBITMQ_USER, RABBITMQ_PASS)
+    connection = pika.BlockingConnection(pika.ConnectionParameters(host=RABBITMQ_HOST, credentials=credentials, heartbeat=600))
+    channel = connection.channel()
+    channel.queue_declare(queue=QUEUE_NAME, durable=True)
+    mq_state["connection"] = connection
+    mq_state["channel"] = channel
+    logger.info("RabbitMQ connection established!")
     
+    yield
+    
+    logger.info("Closing RabbitMQ connection...")
+    mq_state["connection"].close()
+    logger.info("RabbitMQ connection closed!")
+
+
+app = FastAPI(
+    title="Image Generation API Gateway",
+    description="Acceptes requests and queue them for processing",
+    version="1.0.0",
+    lifespan = lifespan
+)
+
+
+setup_tracing(app)
+
     
 def get_db():
     db = SessionLocal()
@@ -22,32 +64,20 @@ def get_db():
     finally:
         db.close()
 
+def get_mq_channel():
+    return mq_state["channel"]
 
 class InferenceRequest(BaseModel):
-    prompt: str
+    prompt: str = "tsuki_advtr, a samoyed dog smiling, white background, thick outlines, pastel color, cartoon style, hand-drawn, 2D icon, game item, 2D game - style, minimalist"
     negative_prompt: str = ""
     num_inference_steps: int = 50
     guidance_scale: float = 7.5
     seed: int = 50
 
 
-app = FastAPI(
-    title="Image Generation API gateway",
-    description="Acceptes requests and queue them for processing",
-    version="1.0.0"
-)
-
-setup_tracing(app)
-
-RABBITMQ_HOST = os.getenv("RABBITMQ_HOST", "localhost")
-RABBITMQ_USER = os.getenv("RABBITMQ_DEFAULT_USER", "user")
-RABBITMQ_PASS = os.getenv("RABBITMQ_DEFAULT_PASS", "password")
-QUEUE_NAME = "image_generation_queue"
-
-
 # save request id to db, send request to message queue, return request id to user
 @app.post("/generate", status_code=202)
-def generate_task(request: InferenceRequest, db: Session = Depends(get_db)):
+def generate_task(request: InferenceRequest, db: Session = Depends(get_db), channel: pika.channel.Channel = Depends(get_mq_channel)):
     """
     Accepts an inference request, saves it to database, and pushes it to message queue
     Returns a request_id for status polling
@@ -56,7 +86,6 @@ def generate_task(request: InferenceRequest, db: Session = Depends(get_db)):
     # request_id = str(uuid.uuid4())
     
     db_request = GenerationRequest(
-        # request_id=request_id,
         prompt = request.prompt,
         negative_prompt = request.negative_prompt,
         num_inference_steps = request.num_inference_steps,
@@ -67,17 +96,13 @@ def generate_task(request: InferenceRequest, db: Session = Depends(get_db)):
     db.add(db_request)
     db.commit()
     db.refresh(db_request)
-    # print(f"Save request {request_id} to database")
     generated_request_id = str(db_request.request_id)
-    print(f"Saved request {generated_request_id} to database")
-    
+    logger.info(
+        "Saved request to database", 
+        extra={"request_id": generated_request_id}
+    )
     
     try:
-        credentials = pika.PlainCredentials(RABBITMQ_USER, RABBITMQ_PASS)
-        connection = pika.BlockingConnection(pika.ConnectionParameters(host=RABBITMQ_HOST, credentials=credentials))
-        channel = connection.channel()
-        channel.queue_declare(queue=QUEUE_NAME, durable=True)
-        
         task_message = {
             "request_id": generated_request_id,
             "params": request.dict()
@@ -89,11 +114,13 @@ def generate_task(request: InferenceRequest, db: Session = Depends(get_db)):
             body=json.dumps(task_message),
             properties=pika.BasicProperties(delivery_mode=pika.spec.PERSISTENT_DELIVERY_MODE)
         )
-        
-        connection.close()
-    
+            
     except Exception as e:
-        print(f"Error publishing to RabbitMQ: {e}")
+        logger.error(
+            "Error publishing to RabbitMQ",
+            extra={"request_id": generated_request_id},
+            exc_info=True
+        )
         db.query(GenerationRequest).filter(GenerationRequest.request_id == db_request.request_id).update({"status": "Failed"})
         db.commit()
         raise HTTPException(status_code=500, detail="Failed to queue the request")
@@ -105,7 +132,10 @@ def generate_task(request: InferenceRequest, db: Session = Depends(get_db)):
 # user send request_id to check status, if completed, return image url
 @app.get("/status/{request_id}")
 def get_status(request_id: str, db: Session = Depends(get_db)):
-    print(f"Checking status for request {request_id}")
+    logger.info(
+        "Checking status for request",
+        extra={"request_id": request_id}
+    )
     
     try:
         request_uuid = uuid.UUID(request_id)
@@ -151,7 +181,10 @@ def update_db(request_id: str, update_data: UpdateRequest, db: Session = Depends
         db_request.image_url = update_data.image_url
         
     db.commit()
-    print(f"Updated status for request {request_id} to {update_data.status}")
+    logger.info(
+        "Updated status for request to status",
+        extra={"request_id": request_id, "status": update_data.status}
+    )
     
     return {"message": "Status updated successfully"}
     

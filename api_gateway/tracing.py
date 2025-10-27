@@ -39,5 +39,5 @@ def setup_tracing(app):
     
     FastAPIInstrumentor.instrument_app(app)
     
-    # PikaInstrumentor().instrument()
+    PikaInstrumentor().instrument()
     
