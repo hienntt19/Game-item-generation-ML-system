@@ -22,3 +22,5 @@ opentelemetry-instrumentation-pika==0.59b0
 
 deprecated==1.2.18
 python-json-logger==4.0.0
+
+prometheus-fastapi-instrumentator==7.1.0

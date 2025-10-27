@@ -18,6 +18,8 @@ from api_gateway.models import GenerationRequest
 from api_gateway.tracing import setup_tracing
 from api_gateway.logging_config import LOGGING_CONFIG
 
+from prometheus_fastapi_instrumentator import Instrumentator
+
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +55,7 @@ app = FastAPI(
     lifespan = lifespan
 )
 
-
+Instrumentator().instrument(app).expose(app)
 setup_tracing(app)
 
     

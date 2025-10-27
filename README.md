@@ -292,9 +292,25 @@ Create new secret:
 kubectl create secret generic jaeger-es-ca --from-file=es-ca.crt -n monitor
 
 
-
 # Access Jaeger UI
 kubectl port-forward -n monitor svc/jaeger-query 16686:80
+
+# Install Prometheus stack
+cd kube-prometheus-stack
+helm dependency update
+
+cd ..
+helm upgrade --install prometheus-stack ./kube-prometheus-stack/ -n monitor
+
+Get Grafana password:
+kubectl get secret -n monitor prometheus-stack-grafana -o jsonpath="{.data.admin-password}" | base64 --decode ; echo
+
+
+kubectl apply -f api-gateway-servicemonitor.yaml
+kubectl apply -f discord-bridge.yaml
+
+Access Grafana UI: ```grafana.34.143.187.172.nip.io```
+
 ```
 
 

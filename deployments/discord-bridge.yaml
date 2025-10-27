@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alertmanager-discord
+  namespace: monitor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: alertmanager-discord
+  template:
+    metadata:
+      labels:
+        app: alertmanager-discord
+    spec:
+      containers:
+      - name: alertmanager-discord
+        image: benjojo/alertmanager-discord:latest
+        args:
+          - webhook-url="https://discordapp.com/api/webhooks/1432312261921476678/61Q64duDFUbZQ92_1YKWupEpHuEQ2t09z_FFT27FZZxJOeVGHYKZ_ii2haH1Mt0SyueR" 
+        ports:
+        - containerPort: 9094
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: alertmanager-discord-service
+  namespace: monitor
+spec:
+  selector:
+    app: alertmanager-discord
+  ports:
+  - protocol: TCP
+    port: 9094
+    targetPort: 9094
