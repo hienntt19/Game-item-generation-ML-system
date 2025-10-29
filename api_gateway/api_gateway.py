@@ -28,24 +28,58 @@ RABBITMQ_USER = os.getenv("RABBITMQ_DEFAULT_USER", "user")
 RABBITMQ_PASS = os.getenv("RABBITMQ_DEFAULT_PASS", "password")
 QUEUE_NAME = "image_generation_queue"
 
-mq_state = {}
+class RabbitMQManager:
+    def __init__(self, host, user, password):
+        self.host = host
+        self.user = user
+        self.password = password
+        self.connection = None
+        self.channel = None
+        self.connect()
+        
+    def connect(self):
+        if self.connection and self.connection.is_open:
+            try:
+                self.connection.close()
+            except Exception as e:
+                logger.warning(f"Error closing previous RabbitMQ connection: {e}")
+        
+        try:
+            logger.info("Attempting to connect to RabbitMQ...")
+            credentials = pika.PlainCredentials(self.user, self.password)
+            params = pika.ConnectionParameters(
+                host = self.host,
+                credentials=credentials,
+                heartbeat=60
+            )
+            self.connection = pika.BlockingConnection(params)
+            self.channel = self.connection.channel()
+            self.channel.queue_declare(queue=QUEUE_NAME, durable=True)
+            logger.info("RabbitMQ connection and channel established successfully!")
+        except pika.exceptions.AMQPConnectionError as e:
+            logger.error(f"Failed to connect to RabbitMQ: {e}")
+            self.connection = None
+            self.channel = None
+            
+    def get_channel(self):
+        if not self.connection or self.connection.is_closed or not self.channel or self.channel.is_closed:
+            logger.warning("RabbitMQ connection is closed or lost. Reconnecting...")
+            self.connect()
+        return self.channel
+        
+    def close(self):
+        if self.connection and self.connection.is_open:
+            logger.info("Closing RabbitMQ connection...")
+            self.connection.close()
+            logger.info("RabbitMQ connection closed.")   
+
+
+rabbitmq_manager = RabbitMQManager(RABBITMQ_HOST, RABBITMQ_USER, RABBITMQ_PASS)     
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Connecting to RabbitMQ...")
-    credentials = pika.PlainCredentials(RABBITMQ_USER, RABBITMQ_PASS)
-    connection = pika.BlockingConnection(pika.ConnectionParameters(host=RABBITMQ_HOST, credentials=credentials, heartbeat=60))
-    channel = connection.channel()
-    channel.queue_declare(queue=QUEUE_NAME, durable=True)
-    mq_state["connection"] = connection
-    mq_state["channel"] = channel
-    logger.info("RabbitMQ connection established!")
-    
     yield
-    
-    logger.info("Closing RabbitMQ connection...")
-    mq_state["connection"].close()
-    logger.info("RabbitMQ connection closed!")
+    rabbitmq_manager.close()
 
 
 app = FastAPI(
@@ -66,7 +100,13 @@ def get_db():
         db.close()
 
 def get_mq_channel():
-    return mq_state["channel"]
+    channel = rabbitmq_manager.get_channel()
+    if not channel:
+        raise HTTPException(
+            status_code=503,
+            detail="Service unavailable: Cannot connect to message queue"
+        )
+    return channel
 
 class InferenceRequest(BaseModel):
     prompt: str
@@ -82,10 +122,7 @@ def generate_task(request: InferenceRequest, db: Session = Depends(get_db), chan
     """
     Accepts an inference request, saves it to database, and pushes it to message queue
     Returns a request_id for status polling
-    """
-    
-    # request_id = str(uuid.uuid4())
-    
+    """    
     db_request = GenerationRequest(
         prompt = request.prompt,
         negative_prompt = request.negative_prompt,
