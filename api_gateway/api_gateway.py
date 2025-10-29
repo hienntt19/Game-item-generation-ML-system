@@ -34,7 +34,7 @@ mq_state = {}
 async def lifespan(app: FastAPI):
     logger.info("Connecting to RabbitMQ...")
     credentials = pika.PlainCredentials(RABBITMQ_USER, RABBITMQ_PASS)
-    connection = pika.BlockingConnection(pika.ConnectionParameters(host=RABBITMQ_HOST, credentials=credentials, heartbeat=600))
+    connection = pika.BlockingConnection(pika.ConnectionParameters(host=RABBITMQ_HOST, credentials=credentials, heartbeat=60))
     channel = connection.channel()
     channel.queue_declare(queue=QUEUE_NAME, durable=True)
     mq_state["connection"] = connection
@@ -57,7 +57,6 @@ app = FastAPI(
 
 Instrumentator().instrument(app).expose(app)
 setup_tracing(app)
-
     
 def get_db():
     db = SessionLocal()

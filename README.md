@@ -1,43 +1,48 @@
 # Tsuki-Style Item Generation System - Services Deployment
+This repository contains the backend services, infrastructure as code, and deployment configurations for the Tsuki-Style Item Generation System. The system is designed to generate unique game item images based on user-provided text prompts, mimicking the art style of the Tsuki Adventure game.
 
 ## Table of content
-- [Introduction](#introduction)
-- [System architecture](#system-architecture)
-- [Project structure](#project-structure)
-- [Deployment on GCP](#deployment-on-gcp)
-   1. [Provision infrastructures with Terraform](#provision-infrastructures-with-terraform)
-   2. [Deploy GKE services - Ingress-nginx, API Gateway, RabbitMQ](#deploy-gke-services---ingress---nginx-api-gateway-rabbitMQ)
-- [Setup CI/CD with Jenkins](#setup-ci-/--cd-with-jenkins)
-- [API flow and output](#api-flow-and-output)
+- [1. Introduction](#1-introduction)
+- [2. System Architecture](#2-system-architecture)
+- [3. Project structure](#3-project-structure)
+- [4. Deployment on GCP](#4-deployment-on-gcp)
+  - [4.1. Provision infrastructures with Terraform](#4-1-provision-infrastructures-with-terraform)
+  - [4.2. Deploy GKE services - Ingress-nginx, API Gateway, RabbitMQ](#4-2-deploy-gke-services---ingress---nginx-api-gateway-rabbitMQ)
+- [5. Setup CI/CD with Jenkins](#5-setup-ci-/--cd-with-jenkins)
+- [6. API flow and output](#api-flow-and-output)
+- [7. Monitoring setup](#7-monitoring-setup)
+  - [7.1. Setup ELK stack](#7-1-setup-elk-stack)
+  - [7.2. Setup Jaeger for distributed tracing](#7-2-setup-jaeger-for-distributed-tracing)
+  - [7.3. Setup Prometheus and Grafana stack](#7-3-setup-prometheus-and-grafana-stack)
 
-## Introduction
-This repository contains the backend services, infrastructure code, and deployment configurations for the Tsuki-Style Item Generation System. The system is designed to generate unique game item images based on user-provided text prompts, mimicking the art style of the Tsuki Adventure game.
 
-The entire system is built on a microservices architecture, composed of 2 main parts:
+## 1. Introduction
 
-1. **GKE Cluster Services (this repository)**: Manages all backend logic, including the API Gateway for handling user requests, a message queue (RabbitMQ) for queuing job messages, and an Nginx-Ingress Controller for routing traffic. 
+The system is built on a microservices architecture and consists of 2 main parts:
+
+1. **GKE Cluster Services (this repository)**: Manages all backend logic, including an API Gateway for handling user requests, a message queue (RabbitMQ) for queuing job messages, and an Nginx-Ingress Controller for routing traffic. 
 
 2. **Inference Worker ([other repository](https://github.com/hienntt19/game-item-generation.git))**: A GPU-powered VM responsible for image generation tasks. It consumes jobs from the message queue and runs the fine-tuned Stable Diffusion model. 
 
-## System architecture
+## 2. System Architecture
 <p align="center">
   <img src="images/architecture.png" alt="Sample architecture">
 </p>
 
-**Main workflows:**
-- **Request submission**: User sends HTTP POST request to the system's endpoint with a json payload containing the prompt and other parameters (num_inference_steps, guidance_scale, etc.).
-- **Routing**: Nginx Ingress Controller routes the incoming request to the API Gateway service.
-- **Job registration**: API Gateway validates the request, save the job details to Cloud SQL (PostgreSQL) database with a "Pending" status, and immediately returns a unique request_id to the user.
-- **Job queuing**: Simultaneously, API Gateway pushes a message containing the request_id and all generation parameters into a RabbitMQ queue.
-- **Image generation (Inference worker)**: 
-   + The inference worker (running on a seperate VM) consumes messages from the queue.
-   + It calls the API Gateway to update the job status to "Processing".
-   + It runs the inference processing using the fine-tuned Stable Diffusion model to generate image.
-   + Upon completion, it uploads the final image to Google Cloud Storage (GCS).
-   + Finally, it calls the API Gateway again to update the job status to "Completed" and stores the public GCS URL of the image in the database. If an error occurs, the status is set to "Failed".
+### Main workflows
+1. **Request submission**: User sends HTTP POST request to the system's endpoint with a json payload containing the prompt and other parameters (num_inference_steps, guidance_scale, etc.).
+2. **Routing**: Nginx Ingress Controller routes the incoming request to the API Gateway service.
+3. **Job registration**: API Gateway validates the request, save the job details to Cloud SQL (PostgreSQL) database with a "Pending" status, and immediately returns a unique request_id to the user.
+4. **Job queuing**: Simultaneously, API Gateway pushes a message containing the request_id and all generation parameters into a RabbitMQ queue.
+5. **Image generation (Inference worker)**: 
+   - The inference worker (running on a seperate VM) consumes messages from the queue.
+   - It calls the API Gateway to update the job status to "Processing".
+   - It runs the inference processing using the fine-tuned Stable Diffusion model to generate image.
+   - Upon completion, it uploads the final image to Google Cloud Storage (GCS).
+   - Finally, it calls the API Gateway again to update the job status to "Completed" and stores the public GCS URL of the image in the database. If an error occurs, the status is set to "Failed".
 
 
-## Project structure
+## 3. Project structure
 ```
 .
 ├── api_gateway           - Defines API Gateway logic
@@ -53,32 +58,29 @@ The entire system is built on a microservices architecture, composed of 2 main p
 └── requirements.txt      - Python dependencies
 ```
 
-## Deployment on GCP
-Prequisite: Google Cloud SDK installed
+## 4. Deployment on GCP
+**Prerequisites:**
+- Google Cloud SDK installed and configured
 
-**Authenticate with gcloud: ***
+**Authentication:**
+- Authenticate local environment with gcloud
 
-```
-gcloud auth login
-gcloud config set project YOUR_PROJECT_ID
+  ```
+  gcloud auth login
+  gcloud config set project YOUR_PROJECT_ID
+  ```
 
-```
+### 4.1. Provision infrastructures with Terraform
+This Terraform setup will provision the following resources: 
+- A GKE cluster with a configured Node Pool
+- A Cloud SQL (PostgresSQL) instance with the required database and table
+- A GCE instance to host Jenkins
+- A GCS bucket to store generated images
+- Service Accounts with appropriate IAM roles for GKE, API Gateway, Jenkins and GCS
+- VPC network, subnetwork anf firewall rules
 
-### 1. Provision infrastructures with Terraform
-Terraform offers the following infrastructures:
-- GKE cluster with Node Pool configurations (to deploy Ingress-Nginx, API Gateway, RabbitMQ)
-- Cloud SQL (Postgres) and required database, table
-- GCE (to run Jenkins)
-- GCS (to store generated images by inference worker)
-- Service account for:
-   + GKE nodes
-   + API Gateway with Cloud SQL Client role and workload identity iam (to update Cloud SQL)
-   + Jenkins VM with Kubernetes Engine Developer role (to deploy application to GKE cluster)
-   + GCS with Object Storage Admin role
-- Firewall (to allow Jenkins ports)
-- VPC network and subnetwork
+To apply the infrastructures:
 
-To setup infrastructures:
 ```
 cd terraform
 terraform init
@@ -86,56 +88,61 @@ terraform plan
 terraform apply
 ```
 
-Show Cloud SQL account password:
+To retrieve Cloud SQL password after deployment, run:
 ```
 terraform output db_password
 ```
 
-### 2. Deploy GKE services - Ingress-nginx, API Gateway, RabbitMQ
-**Connect with GKE cluster:**
+### 4.2. Deploy GKE services - Ingress-nginx, API Gateway, RabbitMQ
+**First, connect to new GKE cluster:**
+
 ```
 gcloud container clusters get-credentials game-item-generation-service-cluster --region asia-southeast1 --project game-item-generation
 ```
 
-**Create namespace:**
+**Create namespaces:**
+
 ```
 kubectl create namespace service-dev
 kubectl create namespace monitor
 kubectl create namespace nginx-ingress
 ```
 
-**Create secrets:**
+**Create Kubernetes secrets:**
 ```
 cd deployments
 kubectl apply -f secrets.yaml
 ```
 
-**Deploy Ingress-nginx:**
+**Deploy Ingress-Nginx:**
 ```
 helm upgrade --install ingress-nginx ./ingress-nginx/ --namespace nginx-ingress
 ```
 
-**Show nginx-ingress External IP and put it in api_gateway/templates/ingress.yaml host:**
-<p align="center">
-  <img src="images/nginx-ip.png" alt="Sample architecture">
-</p>
+After deployment, retrieve the external IP address of the Ingress controller and update the host in api_gateway/templates/ingress.yaml accordingly:
 
-<p align="center">
-  <img src="images/nginx-host.png" alt="Sample architecture">
-</p>
+  <p align="center">
+    <img src="images/nginx-ip.png" alt="Sample architecture">
+  </p>
+
+  <p align="center">
+    <img src="images/nginx-host.png" alt="Sample architecture">
+  </p>
 
 
 **Deploy RabbitMQ:**
+
 ```
 helm upgrade --install rabbitmq ./rabbitmq --namespace service-dev
 ```
 
-Access RabbitMQ through web ui:
+To access the RabbitMQ management UI locally, forward the port:
 ```
 kubectl port-forward svc/rabbitmq 15672:15672 -n service-dev
 ```
 
 **Deploy API Gateway:**
+
 ```
 helm upgrade --install api-gateway ./api_gateway --namespace service-dev
 ```
@@ -145,131 +152,129 @@ Access API Gateway API using ingress host:
   <img src="images/api-gateway-api.png" alt="Sample architecture">
 </p>
 
-## Setup CI/CD with Jenkins
-Create ssh-key on local computer, add it to Jenkins VM instance and connect Jenkins VM instance through ssh:
+## 5. Setup CI/CD with Jenkins
+1. **SSH into the Jenkins VM:** Create an ssh-key pair on local computer and add the public key to Jenkins VM instance on GCP. Connect to the instance via ssh:
 
-<p align="center">
-  <img src="images/ssh_jenkins.png" alt="Sample architecture">
-</p>
+  <p align="center">
+    <img src="images/ssh_jenkins.png" alt="Sample architecture">
+  </p>
 
-<p align="center">
-  <img src="images/jenkins-ip.png" alt="Sample architecture">
-</p>
+  <p align="center">
+    <img src="images/jenkins-ip.png" alt="Sample architecture">
+  </p>
 
-```
-ssh hienntt19@35.240.223.201
-```
+  ```
+  ssh hienntt19@35.240.223.201
+  ```
 
-Install Docker on VM instance: https://docs.docker.com/engine/install/ubuntu/
+2. **Install Docker on VM instance:** Follow the official documentation https://docs.docker.com/engine/install/ubuntu/
 
-After accessing to Jenkins VM instance, create jenkins folder containing Dockerfile and docker-compose.yaml 
-with the same content as jenkins/ :
+3. **Deploy Jenkins:**
+- Inside the VM, create a `jenkins` directory and copy the `Dockerfile` and `docker-compose-jenkins.yaml` from the `jenkins/` directory of this repository.
+  ```
+  mkdir jenkins
 
-```
-mkdir jenkins
+  cd jenkins
 
-cd jenkins
+  vim Dockerfile # then paste content to it
+  vim docker-compose-jenkins.yaml # then paste content to it
 
-vim Dockerfile # then paste content to it
-vim docker-compose-jenkins.yaml # then paste content to it
+  ```
 
-```
+- Run the Jenkins container:
 
-Run Jenkins docker container:
-```
-docker compose -f docker-compose-jenkins.yaml up
-```
-<p align="center">
-   <img src="images/jenkins-pass.png" alt="Sample architecture">
-</p>
+  ```
+  docker compose -f docker-compose-jenkins.yaml up -d
+  ```
+  <p align="center">
+    <img src="images/jenkins-pass.png" alt="Sample architecture">
+  </p>
 
-Save Jenkins password to .env file.
+  Save Jenkins password to .env file
 
-Access Jenkins UI through ```35.240.223.201:8081```:
-  - Login with jenkins password:
-      <p align="center">
-        <img src="images/jenkins-login.png" alt="Sample architecture">
-      </p>
+4. **Initial Jenkins Setup:**
 
-  - Install suggested plugins:
-      <p align="center">
-        <img src="images/jenkins-plugins.png" alt="Sample architecture">
-      </p>
-
-      <p align="center">
-        <img src="images/jenkins-plugins-installing.png" alt="Sample architecture">
-      </p>
-
-      <p align="center">
-        <img src="images/jenkins-config.png" alt="Sample architecture">
-      </p>
-
-  - After successfully login to Jenkins, install Docker, DockerPipeline, Kubernetes plugins:
-      <p align="center">
-        <img src="images/jenkins-plugins-cloud.png" alt="Sample architecture">
-      </p>
-
-  - Restart and login into Jenkins again
-
-  - Create New item:
+- Access Jenkins UI at `http://<YOUR_JENKINS_VM_IP>:8081`
+- Login with jenkins username and password:
     <p align="center">
-      <img src="images/jenkins_add_item.png" alt="Sample architecture">
+      <img src="images/jenkins-login.png" alt="Sample architecture">
+    </p>
+- Install suggested plugins:
+    <p align="center">
+      <img src="images/jenkins-plugins.png" alt="Sample architecture">
     </p>
 
-  - Config New item with Github URL and credentials:
     <p align="center">
-      <img src="images/jenkins_item_config.png" alt="Sample architecture">
+      <img src="images/jenkins-plugins-installing.png" alt="Sample architecture">
     </p>
 
-  - Go to Manage Jenkins/Credentials and add the following credentials:
-    + Add global Credentials with kind Secret text for:
-        api-gateway-postgres-user,
-        api-gateway-postgres-pass,
-        api-gateway-postgres-db,
-        api-gateway-rabbitmq-host,
-        api-gateway-rabbitmq-user,
-        api-gateway-rabbitmq-pass
-
-      <p align="center">
-        <img src="images/jenkins_credential_example.png" alt="Sample architecture">
-      </p>
-
-    + Add global Credentials with kind Username with password for dockerhub-credentials:
-
-      <p align="center">
-        <img src="images/dockerhub-credentials.png" alt="Sample architecture">
-      </p>
-
     <p align="center">
-      <img src="images/all-credentials.png" alt="Sample architecture">
+      <img src="images/jenkins-config.png" alt="Sample architecture">
     </p>
 
-  - Create Github webhook to trigger Jenkins CI/CD
-    + Go to Github repository of the project -> Webhooks -> Add webhook
+5. **Configure Jenkins Plugins:**
+- After the initial setup, navigate to **Manage Jenkins > Plugins** and install the Docker, DockerPipeline, and Kubernetes plugins:
+  <p align="center">
+    <img src="images/jenkins-plugins-cloud.png" alt="Sample architecture">
+  </p>
+
+6. **Create Jenkins Pipeline:**
+- Create a New item in Jenkins:
+  <p align="center">
+    <img src="images/jenkins_add_item.png" alt="Sample architecture">
+  </p>
+
+- Configure the pipeline to use the `Jenkinsfile` from Github repository:
+  <p align="center">
+    <img src="images/jenkins_item_config.png" alt="Sample architecture">
+  </p>
+
+7. **Add Credentials:**
+  - Go to **Manage Jenkins > Credentials** and add the following credentials:
+    + **Secret text** for database and RabbitMQ connection details:
+    + **Username with password** for Dockerhub credentials
+
       <p align="center">
-        <img src="images/webhook.png" alt="Sample architecture">
+        <img src="images/all-credentials.png" alt="Sample architecture">
       </p>
 
-## API flow and output
+8. **Setup Github Webhook:**
+- In Github repository setting, navigate to **Webhooks** and create a new webhook pointing to Jenkins server to trigger builds on push events
+  <p align="center">
+    <img src="images/webhook.png" alt="Sample architecture">
+  </p>
+
+## 6. API flow and output
 ![Demo video](./images/full_flow.gif)
 
-## Monitoring setup
+## 7. Monitoring Setup
 
-### Install ELK
+### 7.1. Setup ELK stack
 
+**Deploy Elasticsearch:**
 ```
-# Elasticsearch
 helm upgrade --install elasticsearch ./elasticsearch/ -f ./elasticsearch/values.yaml -n monitor
+```
 
-# Kibana
-helm upgrade --install kibana ./kibana/ -f ./kibana/values.yaml -n monitor
-# Access kibana
-kubectl port-forward svc/kibana-kibana 5601:5601
-
-# Install filebeat
+**Deploy Filebeat:**
+```
 helm upgrade --install filebeat ./filebeat/ -f ./filebeat/values.yaml -n monitor
+```
 
-# Install Jaeger
+**Deploy Kibana:**
+```
+helm upgrade --install kibana ./kibana/ -f ./kibana/values.yaml -n monitor
+```
+
+Access Kibana UI with port-forward:
+```
+kubectl port-forward svc/kibana-kibana 5601:5601
+```
+
+
+### 7.2. Setup Jaeger for distributed tracing
+**Install Cert-Manager:**
+```
 helm repo add jetstack https://charts.jetstack.io
 helm repo update
 
@@ -279,38 +284,51 @@ helm install \
   --create-namespace \
   --version v1.13.2 \
   --set installCRDs=true
+```
 
-helm upgrade --install jaeger ./jaeger -n monitor
-
-# Cert
+**Setup ca-cert:**
+```
 kubectl get secret elasticsearch-master-certs -n monitor -o yaml
 
-Copy ca.crt and decode:
+# Copy ca.crt and decode:
 echo "..." | base64 --decode > es-ca.crt
 
-Create new secret:
+# Create new secret:
 kubectl create secret generic jaeger-es-ca --from-file=es-ca.crt -n monitor
+```
 
+**Deploy Jaeger:**
+```
+helm upgrade --install jaeger ./jaeger -n monitor
+```
 
-# Access Jaeger UI
+Access Jaeger UI locally by port-forward:
+```
 kubectl port-forward -n monitor svc/jaeger-query 16686:80
+```
 
-# Install Prometheus stack
+### 7.3. Setup Prometheus and Grafana stack
+**Install Prometheus stack:**
+```
 cd kube-prometheus-stack
 helm dependency update
 
 cd ..
 helm upgrade --install prometheus-stack ./kube-prometheus-stack/ -n monitor
+```
 
-Get Grafana password:
+Get Grafana admin password:
+```
 kubectl get secret -n monitor prometheus-stack-grafana -o jsonpath="{.data.admin-password}" | base64 --decode ; echo
+```
 
+Access Grafana UI at `grafana.34.142.131.209.nip.io`
 
+Apply Service monitor for Api Gateway and Alert manager with discord:
+```
 kubectl apply -f api-gateway-servicemonitor.yaml
 kubectl apply -f discord-bridge.yaml
-
-Access Grafana UI: ```grafana.34.143.187.172.nip.io```
-
+kubectl apply -f allow-gateway-to-jaeger.yaml 
 ```
 
 
