@@ -23,49 +23,58 @@ from prometheus_fastapi_instrumentator import Instrumentator
 
 logger = logging.getLogger(__name__)
 
-RABBITMQ_HOST = os.getenv("RABBITMQ_HOST", "localhost")
-RABBITMQ_USER = os.getenv("RABBITMQ_DEFAULT_USER", "user")
-RABBITMQ_PASS = os.getenv("RABBITMQ_DEFAULT_PASS", "password")
-QUEUE_NAME = "image_generation_queue"
-
 class RabbitMQManager:
-    def __init__(self, host, user, password):
+    def __init__(self, host, user, password, queue_name):
         self.host = host
         self.user = user
         self.password = password
+        self.queue_name = queue_name
         self.connection = None
         self.channel = None
-        self.connect()
+    
+    def _is_connection_open(self):
+        return (self.connection and self.connection.is_open and
+                self.channel and self.channel.is_open)
         
+    
     def connect(self):
-        if self.connection and self.connection.is_open:
-            try:
-                self.connection.close()
-            except Exception as e:
-                logger.warning(f"Error closing previous RabbitMQ connection: {e}")
-        
+        if self._is_connection_open():
+            logger.debug("Connection is already open.")
+            return True
         try:
             logger.info("Attempting to connect to RabbitMQ...")
             credentials = pika.PlainCredentials(self.user, self.password)
             params = pika.ConnectionParameters(
-                host = self.host,
+                host=self.host,
                 credentials=credentials,
-                heartbeat=60
+                heartbeat=60,
+                blocked_connection_timeout=300
             )
             self.connection = pika.BlockingConnection(params)
             self.channel = self.connection.channel()
-            self.channel.queue_declare(queue=QUEUE_NAME, durable=True)
+            
+            self.channel.queue_declare(queue=self.queue_name, durable=True)
+            self.channel.confirm_delivery()
+            
             logger.info("RabbitMQ connection and channel established successfully!")
+            return True
+        
         except pika.exceptions.AMQPConnectionError as e:
             logger.error(f"Failed to connect to RabbitMQ: {e}")
             self.connection = None
             self.channel = None
+            return False
             
     def get_channel(self):
-        if not self.connection or self.connection.is_closed or not self.channel or self.channel.is_closed:
-            logger.warning("RabbitMQ connection is closed or lost. Reconnecting...")
-            self.connect()
-        return self.channel
+        if self._is_connection_open():
+            return self.channel
+        
+        logger.warning("RabbitMQ connection is closed or not established. Attempting to connect.")
+        if self.connect():
+            return self.channel
+        else:
+            logger.critical("Could not re-establish connection to RabbitMQ.")
+            return None
         
     def close(self):
         if self.connection and self.connection.is_open:
@@ -73,8 +82,22 @@ class RabbitMQManager:
             self.connection.close()
             logger.info("RabbitMQ connection closed.")   
 
+RABBITMQ_HOST = os.getenv("RABBITMQ_HOST", "localhost")
+RABBITMQ_USER = os.getenv("RABBITMQ_DEFAULT_USER", "user")
+RABBITMQ_PASS = os.getenv("RABBITMQ_DEFAULT_PASS", "password")
+QUEUE_NAME = "image_generation_queue"
 
-rabbitmq_manager = RabbitMQManager(RABBITMQ_HOST, RABBITMQ_USER, RABBITMQ_PASS)     
+rabbitmq_manager = RabbitMQManager(RABBITMQ_HOST, RABBITMQ_USER, RABBITMQ_PASS, QUEUE_NAME)     
+
+def get_mq_channel():
+    channel = rabbitmq_manager.get_channel()
+    if not channel:
+        raise HTTPException(
+            status_code=503,
+            detail="Service unavailable: Cannot connect to message queue"
+        )
+    return channel
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -99,14 +122,6 @@ def get_db():
     finally:
         db.close()
 
-def get_mq_channel():
-    channel = rabbitmq_manager.get_channel()
-    if not channel:
-        raise HTTPException(
-            status_code=503,
-            detail="Service unavailable: Cannot connect to message queue"
-        )
-    return channel
 
 class InferenceRequest(BaseModel):
     prompt: str
