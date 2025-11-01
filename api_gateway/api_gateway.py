@@ -12,10 +12,11 @@ from datetime import datetime
 from contextlib import asynccontextmanager
 import logging 
 import logging.config
+import os
 
 from api_gateway.database import SessionLocal
 from api_gateway.models import GenerationRequest
-from api_gateway.tracing import setup_tracing
+from api_gateway.tracing import tracer
 from api_gateway.logging_config import LOGGING_CONFIG
 
 from prometheus_fastapi_instrumentator import Instrumentator
@@ -113,7 +114,6 @@ app = FastAPI(
 )
 
 Instrumentator().instrument(app).expose(app)
-setup_tracing(app)
     
 def get_db():
     db = SessionLocal()
@@ -134,39 +134,44 @@ class InferenceRequest(BaseModel):
 # save request id to db, send request to message queue, return request id to user
 @app.post("/generate", status_code=202)
 def generate_task(request: InferenceRequest, db: Session = Depends(get_db), channel: pika.channel.Channel = Depends(get_mq_channel)):
-    """
-    Accepts an inference request, saves it to database, and pushes it to message queue
-    Returns a request_id for status polling
-    """    
-    db_request = GenerationRequest(
-        prompt = request.prompt,
-        negative_prompt = request.negative_prompt,
-        num_inference_steps = request.num_inference_steps,
-        guidance_scale = request.guidance_scale,
-        seed = request.seed
-    )
-    
-    db.add(db_request)
-    db.commit()
-    db.refresh(db_request)
-    generated_request_id = str(db_request.request_id)
-    logger.info(
-        "Saved request to database", 
-        extra={"request_id": generated_request_id}
-    )
+
+    with tracer.start_as_current_span("save_request_to_db") as db_span:
+        db_request = GenerationRequest(
+            prompt = request.prompt,
+            negative_prompt = request.negative_prompt,
+            num_inference_steps = request.num_inference_steps,
+            guidance_scale = request.guidance_scale,
+            seed = request.seed
+        )
+        
+        db.add(db_request)
+        db.commit()
+        db.refresh(db_request)
+        generated_request_id = str(db_request.request_id)
+        
+        db_span.set_attribute("request_id", generated_request_id)
+        
+        logger.info(
+            "Saved request to database", 
+            extra={"request_id": generated_request_id}
+        )
     
     try:
         task_message = {
             "request_id": generated_request_id,
             "params": request.model_dump()
         }
-    
-        channel.basic_publish(
-            exchange="",
-            routing_key=QUEUE_NAME,
-            body=json.dumps(task_message),
-            properties=pika.BasicProperties(delivery_mode=pika.spec.PERSISTENT_DELIVERY_MODE)
-        )
+        
+        with tracer.start_as_current_span("publish_to_rabbitmq") as pika_span:
+            pika_span.set_attribute("routing_key", QUEUE_NAME)
+            pika_span.set_attribute("request_id", generated_request_id)
+            
+            channel.basic_publish(
+                exchange="",
+                routing_key=QUEUE_NAME,
+                body=json.dumps(task_message),
+                properties=pika.BasicProperties(delivery_mode=pika.spec.PERSISTENT_DELIVERY_MODE)
+            )
             
     except Exception as e:
         logger.error(

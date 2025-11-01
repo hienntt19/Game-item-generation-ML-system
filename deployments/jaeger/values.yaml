@@ -486,7 +486,7 @@ collector:
     loadBalancerIP: ""
     # List of IP ranges that are allowed to access the load balancer (if supported)
     loadBalancerSourceRanges: []
-    type: ClusterIP
+    type: LoadBalancer
     # Cluster IP address to assign to service. Set to None to make service headless
     clusterIP: ""
     grpc:

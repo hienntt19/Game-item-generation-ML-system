@@ -13,3 +13,5 @@ wheels/
 
 *.tfstate
 *.tfstate.backup
+
+gcs-key.json

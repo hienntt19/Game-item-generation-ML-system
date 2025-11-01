@@ -251,6 +251,44 @@ Access API Gateway API using ingress host:
 
 ### 7.1. Setup ELK stack
 
+**Install Cert-Manager:**
+```
+helm repo add jetstack https://charts.jetstack.io
+helm repo update
+
+helm install \
+  cert-manager jetstack/cert-manager \
+  --namespace cert-manager \
+  --create-namespace \
+  --version v1.13.2 \
+  --set installCRDs=true
+```
+
+**Install ClusterIssuers:**
+```
+kubectl apply -f letsencrypt-issuer.yaml
+```
+
+**Config GCP Firewall**
+- Find all nodes in GKE cluster and assign `gke-ingress-node` tag:
+```
+gcloud compute instances add-tags gke-game-item-genera-game-item-genera-056fe755-9flr --tags=gke-ingress-node --zone=asia-southeast1-b
+
+```
+
+- Create Firewall rule:
+```
+gcloud compute firewall-rules create allow-vast-ai-to-es \
+    --network=<YOUR_VPC_NETWORK_NAME> \
+    --action=ALLOW \
+    --direction=INGRESS \
+    --rules=tcp:443 \
+    --source-ranges=<YOUR_VAST_AI_VM_IP>/32 \
+    --target-tags=gke-ingress-node \
+    --description="Allow Filebeat from vast.ai VM to reach Elasticsearch Ingress"
+```
+
+
 **Deploy Elasticsearch:**
 ```
 helm upgrade --install elasticsearch ./elasticsearch/ -f ./elasticsearch/values.yaml -n monitor
@@ -271,21 +309,9 @@ Access Kibana UI with port-forward:
 kubectl port-forward svc/kibana-kibana 5601:5601
 ```
 
+![Demo logs](./images/ELK-logs.gif)
 
 ### 7.2. Setup Jaeger for distributed tracing
-**Install Cert-Manager:**
-```
-helm repo add jetstack https://charts.jetstack.io
-helm repo update
-
-helm install \
-  cert-manager jetstack/cert-manager \
-  --namespace cert-manager \
-  --create-namespace \
-  --version v1.13.2 \
-  --set installCRDs=true
-```
-
 **Setup ca-cert:**
 ```
 kubectl get secret elasticsearch-master-certs -n monitor -o yaml
@@ -297,6 +323,8 @@ echo "..." | base64 --decode > es-ca.crt
 kubectl create secret generic jaeger-es-ca --from-file=es-ca.crt -n monitor
 ```
 
+**Expose Jaeger collector with LoadBalancer**
+
 **Deploy Jaeger:**
 ```
 helm upgrade --install jaeger ./jaeger -n monitor
@@ -306,6 +334,8 @@ Access Jaeger UI locally by port-forward:
 ```
 kubectl port-forward -n monitor svc/jaeger-query 16686:80
 ```
+
+![Demo traces](./images/jaeger-traces.gif)
 
 ### 7.3. Setup Prometheus and Grafana stack
 **Install Prometheus stack:**
