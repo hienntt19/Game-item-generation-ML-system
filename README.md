@@ -18,7 +18,7 @@ This repository contains the backend services, infrastructure as code, and deplo
 
 ## 1. Introduction
 
-The system is built on a microservices architecture and consists of 2 main parts:
+The system is built on a microservices architecture and consists of two main parts:
 
 1. **GKE Cluster Services (this repository)**: Manages all backend logic, including an API Gateway for handling user requests, a message queue (RabbitMQ) for queuing job messages, and an Nginx-Ingress Controller for routing traffic. 
 
@@ -26,7 +26,7 @@ The system is built on a microservices architecture and consists of 2 main parts
 
 ## 2. System Architecture
 <p align="center">
-  <img src="images/architecture.png" alt="Sample architecture">
+  <img src="images/system-architecture.png" alt="Sample architecture">
 </p>
 
 ### Main workflows
@@ -53,7 +53,6 @@ The system is built on a microservices architecture and consists of 2 main parts
 ├── terraform             - Provision infrastructures for cloud deployment
 ├── tests                 - Unit tests for API Gateway api
 ├── Dockerfile            - Docker image of API Gateway
-├── export_env.sh         - Exports sensitive environment variables
 ├── Jenkinsfile           - Defines CI/CD pipeline with jenkins
 └── requirements.txt      - Python dependencies
 ```
@@ -164,7 +163,7 @@ Access API Gateway API using ingress host:
   </p>
 
   ```
-  ssh hienntt19@35.240.223.201
+  ssh hienntt19@34.87.163.169
   ```
 
 2. **Install Docker on VM instance:** Follow the official documentation https://docs.docker.com/engine/install/ubuntu/
@@ -245,7 +244,7 @@ Access API Gateway API using ingress host:
   </p>
 
 ## 6. API flow and output
-![Demo video](./images/full_flow.gif)
+![Demo video](./images/api.gif)
 
 ## 7. Monitoring Setup
 
@@ -396,7 +395,7 @@ kubectl port-forward -n monitor svc/jaeger-query 16686:80
 - Apply Service monitor for Api Gateway and config Alert manager with discord:
   + Go to **Discord Channel > Server Settings > Integrations** and create new Webhook
   + Copy Webhook URL and config deployments/discord-bridge.yaml, then run:
-  
+
   ```
   kubectl apply -f api-gateway-servicemonitor.yaml
   kubectl apply -f discord-bridge.yaml
