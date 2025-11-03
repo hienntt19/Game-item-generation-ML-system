@@ -532,20 +532,21 @@ alertmanager:
       - target_matchers:
           - 'alertname = InfoInhibitor'
     route:
-      group_by: ['job']
+      group_by: ['namespace', 'alertname']
       group_wait: 30s
       group_interval: 5m
-      repeat_interval: 12h
+      repeat_interval: 4h
       receiver: 'discord-webhook'
       routes:
       - receiver: 'null'
         matchers:
-          - alertname = "InfoInhibitor"
+          - alertname = "Watchdog"
     receivers:
-    - name: 'null'
     - name: 'discord-webhook'
       webhook_configs:
-      - url: 'http://alertmanager-discord-service.monitoring.svc.cluster.local:9094'
+        - url: 'http://alertmanager-discord-service.monitor.svc.cluster.local:9094/'
+          send_resolved: true
+    - name: 'null'
     templates:
     - '/etc/alertmanager/config/*.tmpl'
 
@@ -1227,6 +1228,7 @@ alertmanager:
 ##
 grafana:
   enabled: true
+
   namespaceOverride: ""
 
   ## ForceDeployDatasources Create datasource configmap even if grafana deployment has been disabled
@@ -1316,13 +1318,14 @@ grafana:
     ## IngressClassName for Grafana Ingress.
     ## Should be provided if Ingress is enable.
     ##
-    # ingressClassName: nginx
+    ingressClassName: "nginx"
 
     ## Annotations for Grafana Ingress
     ##
     annotations:
-      kubernetes.io/ingress.class: nginx
+      # kubernetes.io/ingress.class: nginx
       # kubernetes.io/tls-acme: "true"
+      cert-manager.io/cluster-issuer: letsencrypt-prod
 
     ## Labels to be added to the Ingress
     ##
@@ -1334,10 +1337,11 @@ grafana:
     # hosts:
     #   - grafana.domain.com
     hosts:
-      - grafana.34.143.187.172.nip.io
+      - grafana.34.142.131.209.nip.io
 
     ## Path for grafana ingress
     path: /
+    pathType: Prefix
 
     ## TLS configuration for grafana Ingress
     ## Secret must be manually created in the namespace
@@ -1351,8 +1355,13 @@ grafana:
   # #
   persistence:
     enabled: true
-    type: pvc
+    type: sts
+    storageClassName: "standard"
+    accessModes:
+      - ReadWriteOnce
     size: 10Gi
+    finalizers:
+      - kubernetes.io/pvc-protection
 
   serviceAccount:
     create: true
@@ -1506,6 +1515,25 @@ grafana:
     #   targetLabel: nodename
     #   replacement: $1
     #   action: replace
+
+  grafana.ini:
+    analytics:
+      check_for_updates: true
+    grafana_net:
+      url: https://grafana.net
+    log:
+      mode: console
+    paths:
+      data: /var/lib/grafana/
+      logs: /var/log/grafana
+      plugins: /var/lib/grafana/plugins
+      provisioning: /etc/grafana/provisioning
+    server:
+      domain: grafana.34.142.131.209.nip.io
+
+  env:
+    GF_TRACING_JAEGER_ADDRESS: "localhost:6831" 
+    GF_TRACING_JAEGER_ENABLED: "false"
 
 ## Flag to disable all the kubernetes component scrapers
 ##
@@ -4343,9 +4371,15 @@ prometheus:
 
     ## Resource limits & requests
     ##
-    resources: {}
+    resources:
     # requests:
     #   memory: 400Mi
+      requests:
+        cpu: 500m
+        memory: 2Gi
+      limits:
+        cpu: 1
+        memory: 4Gi
 
     ## Prometheus StorageSpec for persistent data
     ## ref: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/platform/storage.md
@@ -4355,11 +4389,12 @@ prometheus:
     ##
       volumeClaimTemplate:
         spec:
-          storageClassName: standard-rwo
+          storageClassName: standard
           accessModes: ["ReadWriteOnce"]
           resources:
             requests:
-              storage: 30Gi
+              storage: 20Gi
+          selector: {}
 
     ## Using tmpfs volume
     ##
@@ -4384,7 +4419,10 @@ prometheus:
     ## The scrape configuration example below will find master nodes, provided they have the name .*mst.*, relabel the
     ## port to 2379 and allow etcd scraping provided it is running on all Kubernetes master nodes
     ##
-    additionalScrapeConfigs: []
+    additionalScrapeConfigs:
+      - job_name: 'vast-ai-vm'
+        static_configs:
+          - targets: ['120.238.149.198:49090']
     # - job_name: kube-etcd
     #   kubernetes_sd_configs:
     #     - role: node

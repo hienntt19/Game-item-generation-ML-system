@@ -1,0 +1,28 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: my-app-rules
+  namespace: monitor
+  labels:
+    release: prometheus-stack
+spec:
+  groups:
+  - name: api-gateway-rules
+    rules:
+    - alert: HighRPS
+      expr: sum(rate(http_requests_total{job="api-gateway"}[2m])) > 100
+      for: 1m
+      labels:
+        severity: warning
+      annotations:
+        summary: "High RPS on API Gateway"
+        description: "API Gateway is receiving more than 100 requests per second. Current value is {{ $value | humanize }} RPS."
+
+    - alert: HighP95Latency
+      expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job="api-gateway"}[5m])) by (le)) > 0.5
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: "High P95 Latency on API Gateway"
+        description: "P95 latency for API Gateway is above 500ms for the last 5 minutes. Current latency is {{ $value | humanize }}s."

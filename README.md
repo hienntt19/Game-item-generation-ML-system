@@ -325,6 +325,11 @@ kubectl create secret generic jaeger-es-ca --from-file=es-ca.crt -n monitor
 
 **Expose Jaeger collector with LoadBalancer**
 
+**Allow Api Gateway to Jaeger Agent:**
+```
+kubectl apply -f allow-gateway-to-jaeger.yaml 
+```
+
 **Deploy Jaeger:**
 ```
 helm upgrade --install jaeger ./jaeger -n monitor
@@ -339,27 +344,68 @@ kubectl port-forward -n monitor svc/jaeger-query 16686:80
 
 ### 7.3. Setup Prometheus and Grafana stack
 **Install Prometheus stack:**
-```
-cd kube-prometheus-stack
-helm dependency update
+- Access VM Instance on vast.ai to get port forward information for port 9100, then add the following config into kube-prometheus-stack/values.yaml:
 
-cd ..
-helm upgrade --install prometheus-stack ./kube-prometheus-stack/ -n monitor
-```
+  <p align="center">
+    <img src="images/prometheus-port.png" alt="Sample architecture">
+  </p>
 
-Get Grafana admin password:
-```
-kubectl get secret -n monitor prometheus-stack-grafana -o jsonpath="{.data.admin-password}" | base64 --decode ; echo
-```
+  <p align="center">
+    <img src="images/prometheus-port-1.png" alt="Sample architecture">
+  </p>
 
-Access Grafana UI at `grafana.34.142.131.209.nip.io`
+- Create Firewall rules:
+  + Run `curl ifconfig.me` on VM vast.ai to get IP, then create filewall rules that allow that IP with port 443
 
-Apply Service monitor for Api Gateway and Alert manager with discord:
-```
-kubectl apply -f api-gateway-servicemonitor.yaml
-kubectl apply -f discord-bridge.yaml
-kubectl apply -f allow-gateway-to-jaeger.yaml 
-```
+  <p align="center">
+    <img src="images/firewall-vastai.png" alt="Sample architecture">
+  </p>
+
+- Deploy Prometheus + Grafana on GKE:
+  ```
+  cd kube-prometheus-stack
+  helm dependency update
+
+  cd ..
+  helm upgrade --install prometheus-stack ./kube-prometheus-stack/ -n monitor
+  ```
+
+  Get Grafana admin password:
+  ```
+  kubectl get secret -n monitor prometheus-stack-grafana -o jsonpath="{.data.admin-password}" | base64 --decode ; echo
+  ```
+
+- Access Grafana UI at `grafana.34.142.131.209.nip.io`
+
+- Access Prometheus:
+  ```
+  kubectl port-forward -n monitor svc/prometheus-operated 9090:9090
+  ```
+  <p align="center">
+    <img src="images/grafana-vastai.png" alt="Sample architecture">
+  </p>
+
+- Import Dashboard to monitor metrics on GKE cluster and VM vast.ai: go to **Dashboard > New > Import** and paste ID 1860 and Load:
+
+  <p align="center">
+    <img src="images/dashboard-grafana.png" alt="Sample architecture">
+  </p>
+
+  ![Demo metrics](./images/grafana.gif)
+
+- Apply Service monitor for Api Gateway and config Alert manager with discord:
+  + Go to **Discord Channel > Server Settings > Integrations** and create new Webhook
+  + Copy Webhook URL and config deployments/discord-bridge.yaml, then run:
+  
+  ```
+  kubectl apply -f api-gateway-servicemonitor.yaml
+  kubectl apply -f discord-bridge.yaml
+
+  cd kube-prometheus-stack/
+  kubectl apply -f app-alert-rules.yaml
+  ```
+
+
 
 
 
