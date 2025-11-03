@@ -20,9 +20,9 @@ This repository contains the backend services, infrastructure as code, and deplo
 
 The system is built on a microservices architecture and consists of two main parts:
 
-1. **GKE Cluster Services (this repository)**: Manages all backend logic, including an API Gateway for handling user requests, a message queue (RabbitMQ) for queuing job messages, and an Nginx-Ingress Controller for routing traffic. 
+1. **GKE Cluster Services**: Manages all backend logic, including an API Gateway for handling user requests, a message queue (RabbitMQ) for queuing job messages, and an Nginx-Ingress Controller for routing traffic. 
 
-2. **Inference Worker ([other repository](https://github.com/hienntt19/game-item-generation.git))**: A GPU-powered VM responsible for image generation tasks. It consumes jobs from the message queue and runs the fine-tuned Stable Diffusion model. 
+2. **Inference Worker (folder inference_worker)**: A GPU-powered VM responsible for image generation tasks. It consumes jobs from the message queue and runs the fine-tuned Stable Diffusion model. 
 
 ## 2. System Architecture
 <p align="center">
