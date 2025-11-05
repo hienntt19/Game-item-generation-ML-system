@@ -1,6 +1,6 @@
 import uuid
 
-from api_gateway.models import GenerationRequest
+from api_gateway.database import GenerationRequest
 
 MOCK_REQUEST_ID = uuid.uuid4()
 

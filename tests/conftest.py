@@ -8,9 +8,9 @@ from sqlalchemy.orm import Session
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
+from api_gateway.database import GenerationRequest, get_db
 from api_gateway.main import app
-from api_gateway.models import GenerationRequest
-from api_gateway.services import get_db, get_mq_channel
+from api_gateway.services import get_mq_channel
 
 
 @pytest.fixture()
