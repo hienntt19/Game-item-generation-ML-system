@@ -1,7 +1,0 @@
-[project]
-name = "game-item-generation-ml-system"
-version = "0.1.0"
-description = "Add your description here"
-readme = "README.md"
-requires-python = ">=3.11"
-dependencies = []
