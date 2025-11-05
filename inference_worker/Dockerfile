@@ -32,7 +32,6 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 WORKDIR /app
 
-COPY inference.py .
-COPY tracing.py .
+COPY ./app ./app
 
 CMD ["python3", "inference.py"]

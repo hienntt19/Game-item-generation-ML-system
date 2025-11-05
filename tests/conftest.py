@@ -1,14 +1,17 @@
-import pytest
-from unittest.mock import MagicMock
-from sqlalchemy.orm import Session
-from fastapi.testclient import TestClient
 import os
 import sys
+from unittest.mock import MagicMock
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session
 
-from api_gateway.api_gateway import app, get_db, get_mq_channel
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+from api_gateway.main import app
 from api_gateway.models import GenerationRequest
+from api_gateway.services import get_db, get_mq_channel
+
 
 @pytest.fixture()
 def sample_request():
@@ -19,7 +22,7 @@ def sample_request():
         "guidance_scale": 7.5,
         "seed": 50,
     }
-    
+
 
 @pytest.fixture()
 def mock_db_session():
@@ -35,11 +38,9 @@ def mock_mq_channel():
 def client(mock_db_session, mock_mq_channel):
     app.dependency_overrides[get_db] = lambda: mock_db_session
     app.dependency_overrides[get_mq_channel] = lambda: mock_mq_channel
-    
-    test_client = TestClient(app)
-    
-    yield test_client
-    
-    app.dependency_overrides.clear()
-    
 
+    test_client = TestClient(app)
+
+    yield test_client
+
+    app.dependency_overrides.clear()

@@ -29,15 +29,6 @@ pipeline {
         }
 
         stage('Test') {
-            environment {
-                DATABASE_URL  = "sqlite:///:memory:" 
-                RABBITMQ_HOST = "localhost" 
-                POSTGRES_USER = "testuser"
-                POSTGRES_PASSWORD = "testpass"
-                POSTGRES_DB = "testdb"
-                RABBITMQ_DEFAULT_USER = "guest"
-                RABBITMQ_DEFAULT_PASS = "guest"
-            }
             steps {
                 echo "Installing Python3, Pip, and Venv..."
                 sh 'apt-get update && apt-get install -y python3 python3-pip python3-venv'

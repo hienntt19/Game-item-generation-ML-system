@@ -18,7 +18,7 @@ spec:
         image: benjojo/alertmanager-discord:latest
         args:
           - "-webhook.url"
-          - "https://discord.com/api/webhooks/1432312261921476678/61Q64duDFUbZQ92_1YKWupEpHuEQ2t09z_FFT27FZZxJOeVGHYKZ_ii2haH1Mt0SyueR" 
+          - "https://discord.com/api/webhooks/1432312261921476678/61Q64duDFUbZQ92_" 
         ports:
         - containerPort: 9094
 ---

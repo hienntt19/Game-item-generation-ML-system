@@ -4422,7 +4422,7 @@ prometheus:
     additionalScrapeConfigs:
       - job_name: 'vast-ai-vm'
         static_configs:
-          - targets: ['120.238.149.198:49090']
+          - targets: ['120.238.149.198:49029']
     # - job_name: kube-etcd
     #   kubernetes_sd_configs:
     #     - role: node
