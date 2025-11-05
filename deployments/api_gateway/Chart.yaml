@@ -1,0 +1,9 @@
+apiVersion: v2
+name: api_gateway
+description: A Helm chart for api gateway service
+type: application
+version: 0.1.0
+appVersion: "1.0"
+maintainers:
+  - name: hienntt19
+    email: thuyhiennguyenn19@gmail.com

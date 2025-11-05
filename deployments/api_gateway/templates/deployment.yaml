@@ -1,0 +1,78 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+    name: {{ .Release.Name}}
+    labels:
+        app: {{.Release.Name}}
+    namespace: {{ .Values.namespace }}
+spec:
+    replicas: {{ .Values.replicaCount }}
+    selector:
+        matchLabels:
+            app: {{ .Release.Name}}
+    template:
+        metadata:
+            labels:
+                app: {{ .Release.Name}}
+        spec:
+            serviceAccountName: ksa-api-gateway
+            volumes:
+              - name: cloudsql
+                emptyDir: {}
+            containers:
+              - name: {{ .Release.Name}}
+                image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+                imagePullPolicy: {{ .Values.image.pullPolicy }}
+                ports:
+                  - containerPort: {{ .Values.service.targetPort }}  
+                env:
+                - name: RABBITMQ_HOST
+                  value: {{ .Values.rabbitmq.host }}.service-dev.svc.cluster.local
+                - name: RABBITMQ_DEFAULT_USER
+                  valueFrom:
+                    secretKeyRef:
+                      name: api-gateway-credentials
+                      key: RABBITMQ_DEFAULT_USER
+                - name: RABBITMQ_DEFAULT_PASS
+                  valueFrom:
+                    secretKeyRef:
+                      name: api-gateway-credentials
+                      key: RABBITMQ_DEFAULT_PASS
+                - name: DB_USER
+                  value: {{ .Values.database.user }}
+                - name: DB_PASS
+                  valueFrom:
+                    secretKeyRef:
+                      name: api-gateway-credentials
+                      key: DATABASE_PASS
+                - name: DB_NAME
+                  value: {{ .Values.database.name }}
+                - name: DATABASE_URL 
+                  valueFrom:
+                    secretKeyRef:
+                      name: api-gateway-credentials
+                      key: DATABASE_URL
+                - name: OTEL_SERVICE_NAME
+                  value: "api-gateway"
+                - name: JAEGER_AGENT_HOST
+                  value: "jaeger-agent.monitor.svc.cluster.local"
+                volumeMounts:
+                  - name: cloudsql
+                    mountPath: /cloudsql
+                
+              - name: cloudsql-proxy
+                image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.8.0
+                args:
+                  - "--structured-logs"
+                  - "--unix-socket=/cloudsql"
+                  - "--private-ip"
+                  - "{{ .Values.cloudsql.instance_connection_name }}"
+                securityContext:
+                  runAsNonRoot: true
+                resources:
+                  requests:
+                    memory: "256Mi"
+                    cpu: "100m"
+                volumeMounts:
+                  - name: cloudsql
+                    mountPath: /cloudsql
