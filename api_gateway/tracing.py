@@ -26,14 +26,14 @@ def setup_tracing(app: FastAPI):
 
     jaeger_exporter = JaegerExporter(
         agent_host_name=settings.JAEGER_AGENT_HOST,
-        agent_port=settings.JAEGER_AGENT_PORT,
+        agent_port=int(settings.JAEGER_AGENT_PORT),
     )
 
     span_processor = BatchSpanProcessor(jaeger_exporter)
     trace.get_tracer_provider().add_span_processor(span_processor)
 
     logger.info(
-        f"Tracing is configured for service '{service_name}' sending to Jaeger at {settings.JAEGER_AGENT_HOST}:{settings.JAEGER_AGENT_PORT}"
+        f"Tracing is configured for service '{settings.OTEL_SERVICE_NAME}' sending to Jaeger at {settings.JAEGER_AGENT_HOST}:{settings.JAEGER_AGENT_PORT}"
     )
 
     FastAPIInstrumentor.instrument_app(app)

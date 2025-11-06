@@ -10,9 +10,11 @@ from .config import settings
 from .result_consumer import ResultConsumer
 from .routers import generation
 from .services import rabbitmq_manager
+from .tracing import setup_tracing
 
 dictConfig(settings.LOGGING_CONFIG)
 logger = logging.getLogger(__name__)
+
 
 result_consumer = ResultConsumer()
 
@@ -34,6 +36,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+setup_tracing(app)
 Instrumentator().instrument(app).expose(app)
 app.include_router(generation.router)
 

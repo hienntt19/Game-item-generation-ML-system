@@ -1,6 +1,9 @@
+import json
 import uuid
+from unittest.mock import MagicMock, patch
 
-from api_gateway.models import GenerationRequest
+from api_gateway.database import GenerationRequest
+from api_gateway.result_consumer import ResultConsumer
 
 MOCK_REQUEST_ID = uuid.uuid4()
 
@@ -82,45 +85,68 @@ def test_get_status_not_found(client, mock_db_session):
     assert response.status_code == 404
 
 
-# -----------TEST FOR /update_db/{request_id} endpoint -------------#
-# TC5: Update database record successfully
-def test_update_db_success(client, mock_db_session):
-    mock_db_session.reset_mock()
+# TC5: Test logic of consumer when receive valid messages and update db successfully
+@patch("api_gateway.result_consumer.SessionLocal")
+def test_result_consumer_on_message_success(mock_SessionLocal):
+    mock_db_session = MagicMock()
+    mock_SessionLocal.return_value = mock_db_session
 
-    existing_record = GenerationRequest(request_id=MOCK_REQUEST_ID, status="Pending")
+    consumer = ResultConsumer()
 
-    mock_db_session.query.return_value.filter.return_value.first.return_value = (
-        existing_record
-    )
+    mock_ch = MagicMock()
+    mock_method = MagicMock()
+    mock_properties = MagicMock()
 
-    update_payload = {
+    message_payload = {
+        "request_id": str(MOCK_REQUEST_ID),
         "status": "Completed",
-        "image_url": "http://example.com/updated_image.png",
+        "image_url": "http://example.com/new_image.png",
     }
+    body = json.dumps(message_payload).encode("utf-8")
 
-    response = client.put(f"/api/v1/update_db/{MOCK_REQUEST_ID}", json=update_payload)
+    consumer._on_message(mock_ch, mock_method, mock_properties, body)
 
-    assert response.status_code == 200
-    assert response.json() == {"message": "Status updated successfully"}
+    mock_SessionLocal.assert_called_once()
 
-    assert existing_record.status == "Completed"
-    assert existing_record.image_url == "http://example.com/updated_image.png"
+    mock_db_session.query.assert_called_once_with(GenerationRequest)
+    mock_db_session.query.return_value.filter.assert_called_once()
+
+    update_call = mock_db_session.query.return_value.filter.return_value.update
+    update_call.assert_called_once_with(
+        {
+            "status": "Completed",
+            "image_url": "http://example.com/new_image.png",
+        }
+    )
 
     mock_db_session.commit.assert_called_once()
+    mock_db_session.close.assert_called_once()
+
+    mock_ch.basic_ack.assert_called_once()
 
 
-# TC6: Update database for non-existent request_id
-def test_update_db_not_found(client, mock_db_session):
-    mock_db_session.reset_mock()
+# TC6: Test logic of consumer when getting error
+@patch("api_gateway.result_consumer.SessionLocal")
+def test_result_consumer_on_message_error(mock_SessionLocal):
+    mock_db_session = MagicMock()
+    mock_SessionLocal.return_value = mock_db_session
 
-    mock_db_session.query.return_value.filter.return_value.first.return_value = None
+    consumer = ResultConsumer()
+    mock_ch = MagicMock()
+    mock_method = MagicMock()
+    mock_properties = MagicMock()
 
-    update_payload = {"status": "Completed"}
+    message_payload = {
+        "request_id": "this-is-not-a-uuid",
+        "status": "Failed",
+        "image_url": None,
+    }
+    body = json.dumps(message_payload).encode("utf-8")
 
-    response = client.put(
-        "/api/v1/update_db/00000000-0000-0000-0000-000000000000", json=update_payload
-    )
+    consumer._on_message(mock_ch, mock_method, mock_properties, body)
 
-    assert response.status_code == 404
-    assert response.json()["detail"] == "request_id not found"
+    mock_SessionLocal.assert_called_once()
     mock_db_session.commit.assert_not_called()
+    mock_db_session.close.assert_called_once()
+
+    mock_ch.basic_ack.assert_called_once()
