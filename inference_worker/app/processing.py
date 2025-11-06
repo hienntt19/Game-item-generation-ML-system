@@ -5,8 +5,8 @@ import torch
 from diffusers import DDIMScheduler, StableDiffusionPipeline
 from google.cloud import storage
 
-from .config import settings
-from .tracing import tracer
+from config import settings
+from tracing import tracer
 
 logger = logging.getLogger(__name__)
 

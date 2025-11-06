@@ -19,10 +19,8 @@ class Settings(BaseSettings):
     GCS_BUCKET_NAME: str
     GOOGLE_APPLICATION_CREDENTIALS: str = "gcs-key.json"
 
-    LORA_PATH: str = os.path.join(
-        "models", "lora-tsuki-epoch-20", "lora_adapter.safetensors"
-    )
-    BASE_MODEL_PATH: str = os.path.join("models", "stable-diffusion-v1-5")
+    LORA_PATH: str = "models/lora-tsuki-epoch-20/lora_adapter.safetensors"
+    BASE_MODEL_PATH: str = "models/stable-diffusion-v1-5"
     IMAGES_PATH: str = "images"
 
     OTEL_SERVICE_NAME: str = "inference-worker"

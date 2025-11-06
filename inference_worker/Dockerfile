@@ -32,6 +32,6 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 WORKDIR /app
 
-COPY ./app ./app
+COPY ./app .
 
-CMD ["python3", "inference.py"]
+CMD ["python3", "main.py"]

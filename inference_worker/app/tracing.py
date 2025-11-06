@@ -33,12 +33,22 @@ def setup_tracing():
     provider = TracerProvider(resource=resource, sampler=ALWAYS_ON)
     trace.set_tracer_provider(provider)
 
-    jaeger_collector_host = os.getenv("JAEGER_COLLECTOR_HOST", "localhost")
+    jaeger_collector_host = os.getenv("JAEGER_COLLECTOR_HOST")
     jaeger_collector_port = int(os.getenv("JAEGER_COLLECTOR_PORT", 14250))
 
+    if not jaeger_collector_host:
+        logger.critical("JAEGER_COLLECTOR_HOST environment variable not set. Tracing is disabled.")
+        return
+    
+    jaeger_insecure_connection = os.getenv("JAEGER_INSECURE_CONNECTION", "true").lower() == "true"
+
+    logger.info(
+        f"Configuring Jaeger Exporter to send spans to {jaeger_collector_host}:{jaeger_collector_port} (insecure: {jaeger_insecure_connection})"
+    )
+    
     jaeger_exporter = JaegerGrpcSpanExporter(
         collector_endpoint=f"{jaeger_collector_host}:{jaeger_collector_port}",
-        insecure=True,
+        insecure=jaeger_insecure_connection,
     )
 
     trace.get_tracer_provider().add_span_processor(BatchSpanProcessor(jaeger_exporter))

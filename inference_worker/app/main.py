@@ -9,7 +9,7 @@ if os.path.exists("gcs-key.json"):
 
 from config import setup_logging
 from consumer import RabbitMQConsumer
-from processing import load_models_and_dependencies
+from processing import load_model_and_dependencies
 from tracing import setup_tracing
 
 
@@ -17,7 +17,7 @@ def main():
     setup_logging()
     setup_tracing()
 
-    pipe, device, gcs_bucket = load_models_and_dependencies()
+    pipe, device, gcs_bucket = load_model_and_dependencies()
 
     consumer = RabbitMQConsumer(pipe=pipe, device=device, gcs_bucket=gcs_bucket)
 

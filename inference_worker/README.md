@@ -157,8 +157,8 @@ There are 2 ways to run the inference worker:
    docker run \
       --restart always \
       --gpus all \
-      -v /home/user/game-item-generation/models:/app/models \
-      -v /home/user/game-item-generation/gcs-key.json:/app/gcs-key.json \
+      -v /home/user/Game-item-generation-ML-system/inference_worker/models:/app/models \
+      -v /home/user/Game-item-generation-ML-system/inference_worker/gcs-key.json:/app/gcs-key.json \
       --env-file ./.env \
       --log-driver json-file \
       --log-opt max-size=50m \

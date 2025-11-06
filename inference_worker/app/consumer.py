@@ -7,9 +7,9 @@ from opentelemetry import trace
 from opentelemetry.propagate import extract
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
-from .config import settings
-from .processing import process_image_request
-from .tracing import tracer
+from config import settings
+from processing import process_image_request
+from tracing import tracer
 
 logger = logging.getLogger(__name__)
 
