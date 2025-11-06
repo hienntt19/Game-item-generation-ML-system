@@ -33,7 +33,7 @@ def setup_tracing(app: FastAPI):
     trace.get_tracer_provider().add_span_processor(span_processor)
 
     logger.info(
-        f"Tracing is configured for service '{service_name}' sending to Jaeger at {settings.JAEGER_AGENT_HOST}:{settings.JAEGER_AGENT_PORT}"
+        f"Tracing is configured for service '{settings.OTEL_SERVICE_NAME}' sending to Jaeger at {settings.JAEGER_AGENT_HOST}:{settings.JAEGER_AGENT_PORT}"
     )
 
     FastAPIInstrumentor.instrument_app(app)
