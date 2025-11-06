@@ -14,6 +14,7 @@ from .services import rabbitmq_manager
 dictConfig(settings.LOGGING_CONFIG)
 logger = logging.getLogger(__name__)
 
+
 result_consumer = ResultConsumer()
 
 
@@ -34,6 +35,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+setup_tracing(app)
 Instrumentator().instrument(app).expose(app)
 app.include_router(generation.router)
 
