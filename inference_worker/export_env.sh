@@ -1,0 +1,7 @@
+export RABBITMQ_HOST="35.240.159.164"
+export RABBITMQ_DEFAULT_USER="hienntt19"
+export RABBITMQ_DEFAULT_PASS="rabbitmqntt19hh"
+export API_GATEWAY_URL="http://34.142.131.209.nip.io"
+export GCS_BUCKET_NAME="inference-worker-bucket"
+export JAEGER_COLLECTOR_HOST="34.142.245.177"
+export OTEL_SERVICE_NAME="inference-worker"
