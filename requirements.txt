@@ -28,3 +28,5 @@ prometheus-fastapi-instrumentator==7.1.0
 black==25.9.0
 isort==7.0.0
 pydantic-settings==2.11.0
+
+celery==5.5.3
