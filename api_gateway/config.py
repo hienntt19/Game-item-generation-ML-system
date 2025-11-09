@@ -2,27 +2,39 @@ import logging
 import os
 from typing import Any, Dict
 
-from pydantic_settings import BaseSettings
+from pydantic import computed_field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    RABBITMQ_HOST: str = os.getenv("RABBITMQ_HOST", "localhost")
-    RABBITMQ_USER: str = os.getenv("RABBITMQ_DEFAULT_USER", "user")
-    RABBITMQ_PASS: str = os.getenv("RABBITMQ_DEFAULT_PASS", "password")
-    QUEUE_NAME: str = "image_generation_queue"
-    RESULTS_QUEUE_NAME: str = "image_results_queue"
+    RABBITMQ_HOST: str
+    RABBITMQ_USER: str
+    RABBITMQ_PASS: str
 
     DATABASE_URL: str = (
         "postgresql://hienntt19:whN7wg7ecQlNJ2kcvYhT@/image_requests?host=/cloudsql/game-item-generation:asia-southeast1:game-item-generation-service-db"
     )
+    DATABASE_PASS: str
 
     APP_TITLE: str = "API Gateway for Game Item Generation"
     APP_DESCRIPTION: str = "Accepts requests and queues them for processing"
     APP_VERSION: str = "1.0.0"
 
-    OTEL_SERVICE_NAME: str = "api-gateway"
-    JAEGER_AGENT_HOST: str = "localhost"
-    JAEGER_AGENT_PORT: int = 6831
+    OTEL_SERVICE_NAME: str
+    JAEGER_AGENT_HOST: str
+    JAEGER_AGENT_PORT: int
+
+    @computed_field
+    @property
+    def CELERY_BROKER_URL(self) -> str:
+        return f"amqp://{self.RABBITMQ_USER}:{self.RABBITMQ_PASS}@{self.RABBITMQ_HOST}:5672//"
+
+    @computed_field
+    @property
+    def CELERY_RESULT_BACKEND(self) -> str:
+        return f"rpc://{self.RABBITMQ_USER}:{self.RABBITMQ_PASS}@{self.RABBITMQ_HOST}:5672//"
+
+    CELERY_TASK_DEFAULT_QUEUE: str = "generation_tasks"
 
     LOG_LEVEL: str = "INFO"
     JSON_FORMAT: str = (
@@ -68,9 +80,7 @@ class Settings(BaseSettings):
             },
         }
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
 
 settings = Settings()

@@ -1,17 +1,16 @@
-import json
 import logging
 import uuid
 
-import pika
 from fastapi import APIRouter, Depends, HTTPException
+from opentelemetry import trace
 from opentelemetry.propagate import inject
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from ..celery_worker import generate_image_task
 from ..config import settings
 from ..database import GenerationRequest, get_db
-from ..services import get_mq_channel
 from ..tracing import tracer
 
 logger = logging.getLogger(__name__)
@@ -26,17 +25,10 @@ class InferenceRequest(BaseModel):
     seed: int = 50
 
 
-class UpdateRequest(BaseModel):
-    status: str
-    image_url: str = None
-
-
-# save request id to db, send request to message queue, return request id to user
 @router.post("/generate", status_code=202)
 def generate_task(
     request: InferenceRequest,
     db: Session = Depends(get_db),
-    channel: pika.channel.Channel = Depends(get_mq_channel),
 ):
     with tracer.start_as_current_span("save_request_to_db") as db_span:
         db_request = GenerationRequest(
@@ -45,10 +37,12 @@ def generate_task(
             num_inference_steps=request.num_inference_steps,
             guidance_scale=request.guidance_scale,
             seed=request.seed,
+            status="Queued",
         )
         db.add(db_request)
         db.commit()
         db.refresh(db_request)
+
         generated_request_id = str(db_request.request_id)
         db_span.set_attribute("db.request_id", generated_request_id)
         logger.info(
@@ -56,30 +50,13 @@ def generate_task(
         )
 
     try:
-        task_message = {
-            "request_id": generated_request_id,
-            "params": request.model_dump(),
-        }
-        with tracer.start_as_current_span("publish_to_rabbitmq") as pika_span:
-            pika_span.set_attribute("messaging.destination", settings.QUEUE_NAME)
-            pika_span.set_attribute("messaging.message.id", generated_request_id)
-
-            carrier = {}
-            TraceContextTextMapPropagator().inject(carrier)
-            pika_span.add_event(
-                "Injecting trace context into RabbitMQ message properties."
+        with tracer.start_as_current_span("dispatch_celery_task"):
+            generate_image_task.delay(
+                request_id=generated_request_id, params=request.model_dump()
             )
 
-            channel.basic_publish(
-                exchange="",
-                routing_key=settings.QUEUE_NAME,
-                body=json.dumps(task_message),
-                properties=pika.BasicProperties(
-                    delivery_mode=pika.spec.PERSISTENT_DELIVERY_MODE, headers=carrier
-                ),
-            )
             logger.info(
-                "Published message to RabbitMQ",
+                "Dispatched task to Celery",
                 extra={"request_id": generated_request_id},
             )
     except Exception as e:
@@ -90,7 +67,7 @@ def generate_task(
         )
 
         logger.error(
-            "Error publishing to RabbitMQ",
+            "Error dispatching task to Celery",
             extra={"request_id": generated_request_id},
             exc_info=True,
         )
@@ -103,7 +80,6 @@ def generate_task(
     return {"request_id": str(generated_request_id)}
 
 
-# user send request_id to check status, if completed, return image url
 @router.get("/status/{request_id}")
 def get_status(request_id: str, db: Session = Depends(get_db)):
     with tracer.start_as_current_span("get_request_status") as span:
