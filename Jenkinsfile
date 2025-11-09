@@ -46,7 +46,7 @@ pipeline {
                 sh '''
                     . .venv/bin/activate
                     export PYTHONPATH=.
-                    pytest tests/
+                    pytest
                 '''
             }
         }
