@@ -29,6 +29,22 @@ pipeline {
         }
 
         stage('Test') {
+            environment {
+                RABBITMQ_HOST       = 'localhost'
+                RABBITMQ_USER       = 'testuser'
+                RABBITMQ_PASS       = 'testpass'
+                
+                DATABASE_HOST       = 'localhost'
+                DATABASE_PORT       = '5432'
+                DATABASE_USER       = 'testuser'
+                DATABASE_PASS       = 'testpass'
+                DATABASE_NAME       = 'testdb'
+                
+                OTEL_SERVICE_NAME   = 'api_gateway_test'
+                JAEGER_AGENT_HOST   = 'localhost'
+                JAEGER_AGENT_PORT   = '6831'
+            }
+            
             steps {
                 echo "Installing Python3, Pip, and Venv..."
                 sh 'apt-get update && apt-get install -y python3 python3-pip python3-venv'
