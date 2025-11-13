@@ -5,14 +5,15 @@ from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pythonjsonlogger import jsonlogger
+from pydantic import computed_field
 
 
 class Settings(BaseSettings):
     RABBITMQ_HOST: str
     RABBITMQ_DEFAULT_USER: str
     RABBITMQ_DEFAULT_PASS: str
-    QUEUE_NAME: str = "image_generation_queue"
-    RESULTS_QUEUE_NAME: str = "image_results_queue"
+    
+    DATABASE_URL: str
 
     API_GATEWAY_URL: str
 
@@ -24,8 +25,21 @@ class Settings(BaseSettings):
     IMAGES_PATH: str = "images"
 
     OTEL_SERVICE_NAME: str = "inference-worker"
+    JAEGER_COLLECTOR_HOST: str
+    
+    @computed_field
+    @property
+    def CELERY_BROKER_URL(self) -> str:
+        return f"amqp://{self.RABBITMQ_DEFAULT_USER}:{self.RABBITMQ_DEFAULT_PASS}@{self.RABBITMQ_HOST}:5672//"
+        
+    @computed_field
+    @property
+    def CELERY_RESULT_BACKEND(self) -> str:
+        return f"rpc://{self.RABBITMQ_DEFAULT_USER}:{self.RABBITMQ_DEFAULT_PASS}@{self.RABBITMQ_HOST}:5672//"
+    
+    CELERY_TASK_DEFAULT_QUEUE: str  = "generation_tasks"
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(env_file="../.env", env_file_encoding="utf-8")
 
 
 @lru_cache
